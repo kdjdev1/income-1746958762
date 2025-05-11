@@ -1,0 +1,1826 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Shop Monitor - Income / Sales</title>
+   <link rel="icon" href="favicon.ico" type="image/x-icon">
+   <script src="https://cdn.tailwindcss.com"></script>
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+   <style>
+      /* Custom Styles */
+      body {
+         font-family: 'Inter', sans-serif;
+      }
+
+      .nav-link.active {
+         background-color: #1d4ed8;
+         /* Darker blue for active */
+         color: white;
+      }
+
+      .nav-link {
+         transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+      }
+
+      /* Custom Modal Styles */
+      .modal-overlay {
+         position: fixed;
+         top: 0;
+         left: 0;
+         right: 0;
+         bottom: 0;
+         background-color: rgba(0, 0, 0, 0.5);
+         display: flex;
+         justify-content: center;
+         align-items: center;
+         z-index: 1000;
+         opacity: 0;
+         visibility: hidden;
+         transition: opacity 0.3s ease, visibility 0.3s ease;
+      }
+
+      .modal-overlay.visible {
+         opacity: 1;
+         visibility: visible;
+      }
+
+      .modal-content {
+         background-color: white;
+         padding: 2rem;
+         border-radius: 0.5rem;
+         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+         width: 90%;
+         max-width: 500px;
+         transform: scale(0.95);
+         transition: transform 0.3s ease;
+      }
+
+      .modal-overlay.visible .modal-content {
+         transform: scale(1);
+      }
+
+      #custom-modal {
+         z-index: 1010;
+         /* Ensure confirmation modal is on top */
+      }
+
+      #edit-stock-modal .modal-content {
+         max-width: 650px;
+         /* Wider modal for edit form */
+      }
+
+      #adjust-stock-modal .modal-content {
+         max-width: 550px;
+         /* Slightly wider for adjust form */
+      }
+
+      /* Undo Area Styling */
+      #undo-area {
+         background-color: #e0f2fe;
+         /* Light blue */
+         color: #0c4a6e;
+         /* Dark blue text */
+         padding: 0.75rem 1rem;
+         border-radius: 0.375rem;
+         border: 1px solid #7dd3fc;
+         /* Lighter blue border */
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         opacity: 1;
+         transition: opacity 0.5s ease-out;
+         margin-bottom: 1rem;
+      }
+
+      #undo-area.hidden {
+         opacity: 0;
+         height: 0;
+         padding-top: 0;
+         padding-bottom: 0;
+         margin-bottom: 0;
+         overflow: hidden;
+         transition: opacity 0.5s ease-out, height 0.3s ease-out, padding 0.3s ease-out, margin 0.3s ease-out;
+      }
+
+      #undo-area .undo-button {
+         background-color: #38bdf8;
+         /* Sky blue */
+         color: white;
+         padding: 0.25rem 0.75rem;
+         border-radius: 0.375rem;
+         border: none;
+         cursor: pointer;
+         font-weight: 500;
+         transition: background-color 0.2s ease;
+      }
+
+      #undo-area .undo-button:hover {
+         background-color: #0ea5e9;
+         /* Darker sky blue */
+      }
+
+      /* Text Highlighting classes */
+      .text-highlight-red {
+         color: #dc2626;
+         /* Red-600 */
+         font-weight: 600;
+      }
+
+      .text-highlight-yellow {
+         color: #d97706;
+         /* Amber-600 */
+      }
+
+      /* Disabled Row Style */
+      .row-disabled td {
+         color: #9ca3af !important;
+         /* Gray-400 */
+      }
+
+      .row-disabled .stock-level-bar {
+         background-color: #9ca3af !important;
+         /* Gray-400 */
+         width: 0% !important;
+         /* No bar for disabled */
+      }
+
+      /* Prevent hover effect on disabled rows */
+      tbody tr.row-disabled:hover {
+         background-color: #ffffff;
+         /* White */
+      }
+
+      /* Normal row hover */
+      tbody tr:hover:not(.row-disabled) {
+         background-color: #f9fafb;
+         /* Gray-50 */
+      }
+
+      /* Sorting Header Styles */
+      .sortable-header {
+         cursor: pointer;
+         user-select: none;
+         /* Prevent text selection */
+      }
+
+      .sortable-header:hover {
+         background-color: #f3f4f6;
+         /* Gray-100 */
+      }
+
+      .sort-icon {
+         display: inline-block;
+         width: 1em;
+         /* Ensure space for icon */
+         margin-left: 0.3em;
+         opacity: 0.4;
+         transition: opacity 0.2s ease;
+      }
+
+      .sortable-header.sort-asc .sort-icon,
+      .sortable-header.sort-desc .sort-icon {
+         opacity: 1;
+         /* Make icon visible when active */
+      }
+
+      /* Pagination Styles (Copied from stock.html for consistency) */
+      .pagination-controls {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         margin-top: 1rem;
+         padding-top: 0.75rem;
+         border-top: 1px solid #e5e7eb;
+         /* Gray-200 */
+      }
+
+      .pagination-button {
+         padding: 0.5rem 1rem;
+         border: 1px solid #d1d5db;
+         /* Gray-300 */
+         background-color: white;
+         color: #374151;
+         /* Gray-700 */
+         border-radius: 0.375rem;
+         cursor: pointer;
+         transition: background-color 0.2s ease;
+      }
+
+      .pagination-button:hover:not(:disabled) {
+         background-color: #f9fafb;
+         /* Gray-50 */
+      }
+
+      .pagination-button:disabled {
+         opacity: 0.5;
+         cursor: not-allowed;
+      }
+
+      .page-info {
+         font-size: 0.875rem;
+         /* text-sm */
+         color: #6b7280;
+         /* Gray-500 */
+      }
+
+      /* Visual Stock Indicator Styles */
+      .stock-indicator-container {
+         display: inline-flex;
+         align-items: center;
+         width: 100%;
+         /* Take full cell width */
+         justify-content: flex-end;
+         /* Align to the right */
+      }
+
+      .stock-level-bar-bg {
+         width: 60px;
+         /* Fixed width for the bar background */
+         height: 8px;
+         background-color: #e5e7eb;
+         /* Gray-200 */
+         border-radius: 4px;
+         overflow: hidden;
+         margin-left: 8px;
+         /* Space between number and bar */
+         display: inline-block;
+         /* Allow margin */
+      }
+
+      .stock-level-bar {
+         height: 100%;
+         border-radius: 4px;
+         transition: width 0.3s ease;
+      }
+
+      .stock-level-low {
+         background-color: #dc2626;
+         /* Red-600 */
+      }
+
+      .stock-level-medium {
+         background-color: #d97706;
+         /* Amber-600 */
+      }
+
+      .stock-level-high {
+         background-color: #16a34a;
+         /* Green-600 */
+      }
+
+      /* Summary Box Styles */
+      .summary-box {
+         display: grid;
+         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+         /* Adjusted minmax for potentially 4 items */
+         gap: 1rem;
+         margin-bottom: 1.5rem;
+         padding: 1rem;
+         background-color: #f9fafb;
+         /* Gray-50 */
+         border: 1px solid #e5e7eb;
+         /* Gray-200 */
+         border-radius: 0.5rem;
+      }
+
+      .summary-item {
+         padding: 0.75rem;
+         border-radius: 0.375rem;
+         text-align: center;
+         display: flex;
+         /* For icon alignment */
+         flex-direction: column;
+         /* Stack icon and text */
+         align-items: center;
+         /* Center items horizontally */
+         justify-content: center;
+         /* Center items vertically */
+      }
+
+      .summary-item-green {
+         background-color: #dcfce7;
+         color: #15803d;
+      }
+
+      /* Green-100 bg, Green-700 text */
+      .summary-item-blue {
+         background-color: #dbeafe;
+         color: #1e40af;
+      }
+
+      /* Blue-100 bg, Blue-800 text */
+      .summary-item-purple {
+         background-color: #ede9fe;
+         color: #5b21b6;
+      }
+
+      /* Violet-100 bg, Violet-700 text */
+      .summary-item-amber {
+         background-color: #fef3c7;
+         color: #b45309;
+      }
+
+      /* Amber-100 bg, Amber-700 text */
+
+      .summary-value {
+         font-size: 1.5rem;
+         /* text-2xl */
+         font-weight: 600;
+         display: block;
+      }
+
+      .summary-label {
+         font-size: 0.875rem;
+         /* text-sm */
+         font-weight: 500;
+         margin-top: 0.25rem;
+         /* space between value and label */
+      }
+
+      .summary-icon {
+         font-size: 1.25rem;
+         /* text-xl */
+         margin-bottom: 0.5rem;
+         /* space between icon and value */
+      }
+
+
+      /* Autocomplete Suggestion Box */
+      .autocomplete-suggestions {
+         position: absolute;
+         border: 1px solid #d1d5db;
+         /* Gray-300 */
+         background-color: white;
+         max-height: 150px;
+         overflow-y: auto;
+         z-index: 999;
+         width: 100%;
+         /* Make it full width of the input container */
+         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+         border-radius: 0.375rem;
+         margin-top: 2px;
+         /* Small gap below input */
+      }
+
+      .suggestion-item {
+         padding: 0.5rem 0.75rem;
+         cursor: pointer;
+         font-size: 0.875rem;
+         /* text-sm */
+      }
+
+      .suggestion-item:hover {
+         background-color: #eff6ff;
+         /* Blue-50 */
+      }
+
+      .suggestion-item.active {
+         /* For keyboard navigation */
+         background-color: #dbeafe;
+         /* Blue-100 */
+      }
+
+      .suggestion-item .highlight {
+         /* Style for highlighting matched text */
+         font-weight: 700;
+         /* Bold */
+         color: #1d4ed8;
+         /* Blue-700 */
+      }
+
+      .suggestion-item.no-match {
+         /* Style for "No matching items" message */
+         color: #6b7280;
+         /* Gray-500 */
+         cursor: default;
+      }
+
+
+      /* Styling for the calculated total sale display */
+      #calculated-total-sale-display {
+         margin-top: 0.5rem;
+         /* Space above the display */
+         padding: 0.75rem;
+         background-color: #eef2ff;
+         /* Light Indigo background */
+         border: 1px solid #c7d2fe;
+         /* Indigo border */
+         border-radius: 0.375rem;
+         /* Rounded corners */
+         text-align: right;
+         font-size: 1.125rem;
+         /* text-lg */
+         font-weight: 600;
+         /* semibold */
+         color: #3730a3;
+         /* Indigo text */
+      }
+
+      /* Styling for item availability display */
+      #item-availability-display {
+         /* margin-top: -0.5rem; Removed */
+         margin-bottom: 0.25rem;
+         /* Adjusted */
+         padding: 0.25rem 0.5rem;
+         font-size: 0.8rem;
+         /* Smaller text */
+         border-radius: 0.25rem;
+         text-align: left;
+      }
+
+      #item-availability-display.available {
+         color: #059669;
+         /* Green-600 */
+         background-color: #d1fae5;
+         /* Green-100 */
+      }
+
+      #item-availability-display.low-stock {
+         color: #d97706;
+         /* Amber-600 */
+         background-color: #fef3c7;
+         /* Amber-100 */
+      }
+
+      #item-availability-display.out-of-stock {
+         color: #dc2626;
+         /* Red-600 */
+         background-color: #fee2e2;
+         /* Red-100 */
+      }
+
+      #item-availability-display.not-found {
+         color: #6b7280;
+         /* Gray-500 */
+         background-color: #f3f4f6;
+         /* Gray-100 */
+      }
+
+      /* Inline Validation Message Styling */
+      .validation-message {
+         display: none;
+         /* Hidden by default */
+         color: #dc2626;
+         /* Red-600 */
+         font-size: 0.75rem;
+         /* text-xs */
+         margin-top: 0.25rem;
+         /* space below input */
+      }
+
+      input.input-error {
+         border-color: #dc2626 !important;
+         /* Red-600 border */
+         box-shadow: 0 0 0 1px #dc2626 !important;
+         /* Red outline */
+      }
+
+      select.input-error {
+         /* For select elements if needed */
+         border-color: #dc2626 !important;
+         box-shadow: 0 0 0 1px #dc2626 !important;
+      }
+
+      /* Filter Styles */
+      .filter-button {
+         padding: 0.375rem 0.75rem;
+         /* py-1.5 px-3 */
+         font-size: 0.875rem;
+         /* text-sm */
+         border-radius: 0.375rem;
+         /* rounded-md */
+         border: 1px solid #d1d5db;
+         /* border-gray-300 */
+         background-color: white;
+         color: #374151;
+         /* text-gray-700 */
+         transition: background-color 0.2s ease;
+      }
+
+      .filter-button:hover:not(.active) {
+         background-color: #f9fafb;
+         /* hover:bg-gray-50 */
+      }
+
+      .filter-button.active {
+         background-color: #3b82f6;
+         /* bg-blue-500 */
+         color: white;
+         border-color: #3b82f6;
+         /* border-blue-500 */
+      }
+
+      /* Loading Spinner Style */
+      .table-loading-spinner td {
+         text-align: center;
+         padding: 2rem;
+         /* More padding for loading row */
+         color: #6b7280;
+         /* Gray-500 */
+      }
+
+      .table-loading-spinner .fa-spinner {
+         font-size: 1.75rem;
+         /* text-2xl or adjust as needed */
+         margin-right: 0.5rem;
+         /* space between spinner and text */
+      }
+
+      /* Purchase Price Display Style */
+      #item-purchase-price-display {
+         font-size: 0.75rem;
+         /* text-xs */
+         color: #4b5563;
+         /* Gray-600 */
+         margin-left: 0.5rem;
+         /* Space after "Selling Price/Unit" */
+         font-weight: normal;
+         /* Ensure it's not bold from label */
+      }
+
+      /* Collapsible Section Styles */
+      .collapsible-header {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         cursor: pointer;
+      }
+
+      #record-sale-form-content {
+         /* Target for transition */
+         overflow: hidden;
+         transition: max-height 0.35s ease-in-out, opacity 0.3s ease-in-out,
+            margin-top 0.35s ease-in-out, padding-top 0.35s ease-in-out, padding-bottom 0.35s ease-in-out,
+            border-top-width 0.35s ease-in-out;
+         /* Default expanded styles are applied by Tailwind initially */
+      }
+
+      #record-sale-form-content.collapsed {
+         max-height: 0 !important;
+         opacity: 0 !important;
+         margin-top: 0 !important;
+         padding-top: 0 !important;
+         padding-bottom: 0 !important;
+         border-top-width: 0 !important;
+      }
+   </style>
+</head>
+
+<body class="bg-gray-100">
+   <div class="flex h-screen bg-gray-100">
+      <aside class="w-64 bg-blue-800 text-white flex flex-col fixed h-full shadow-lg rounded-r-lg">
+         <div class="p-6 border-b border-blue-700">
+            <h1 class="text-2xl font-semibold text-center">Shop Monitor</h1>
+         </div>
+         <nav class="flex-1 p-4 space-y-2">
+            <a href="index.html" id="nav-dashboard"
+               class="nav-link flex items-center px-4 py-3 rounded-lg hover:bg-blue-700">
+               <i class="fas fa-tachometer-alt w-6 mr-3 text-center"></i> <span>Dashboard</span>
+            </a>
+            <a href="income.html" id="nav-income"
+               class="nav-link flex items-center px-4 py-3 rounded-lg hover:bg-blue-700 active"> <i
+                  class="fas fa-arrow-up-right-dots w-6 mr-3 text-center"></i> <span>Income / Sales</span>
+            </a>
+            <a href="expenses.html" id="nav-expenses"
+               class="nav-link flex items-center px-4 py-3 rounded-lg hover:bg-blue-700">
+               <i class="fas fa-receipt w-6 mr-3 text-center"></i> <span>Expenses</span>
+            </a>
+            <a href="stock.html" id="nav-stock"
+               class="nav-link flex items-center px-4 py-3 rounded-lg hover:bg-blue-700">
+               <i class="fas fa-boxes-stacked w-6 mr-3 text-center"></i> <span>Stock Management</span>
+            </a>
+            <a href="reports.html" id="nav-reports"
+               class="nav-link flex items-center px-4 py-3 rounded-lg hover:bg-blue-700">
+               <i class="fas fa-chart-pie w-6 mr-3 text-center"></i> <span>Reports</span>
+            </a>
+         </nav>
+         <div class="p-4 border-t border-blue-700">
+            <button id="save-backup-button"
+               class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center transition duration-150 ease-in-out">
+               <i class="fas fa-save mr-2"></i> Save & Backup
+            </button>
+         </div>
+      </aside>
+
+      <main class="flex-1 ml-64 p-8 overflow-y-auto">
+         <h2 id="page-title" class="text-3xl font-bold mb-6 text-gray-800">Income / Sales</h2>
+
+         <div id="income-summary-box" class="summary-box">
+         </div>
+
+         <div id="content-area" class="bg-white p-6 rounded-lg shadow-md min-h-[calc(100vh-220px)]">
+            <div id="income-layout-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+               <div id="record-sale-container" class="bg-gray-50 p-6 rounded-lg shadow lg:col-span-1">
+                  <div class="collapsible-header" id="record-sale-header">
+                     <h3 class="text-xl font-semibold">Record Item Sale</h3>
+                     <button id="toggle-sale-form-btn" class="text-blue-600 hover:text-blue-800">
+                        <i class="fas fa-chevron-up"></i>
+                     </button>
+                  </div>
+                  <div id="record-sale-form-content" class="mt-4 border-t pt-4">
+                     <form id="item-sale-form" class="space-y-4 pb-2">
+                        <div>
+                           <label for="item-sale-date" class="block text-sm font-medium text-gray-700">Sale Date</label>
+                           <input type="date" id="item-sale-date" name="item-sale-date" required
+                              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                           <div class="validation-message" id="error-item-sale-date"></div>
+                        </div>
+                        <div class="relative">
+                           <label for="item-sale-name" class="block text-sm font-medium text-gray-700">Item Sold</label>
+                           <input type="text" id="item-sale-name" name="item-sale-name" required autocomplete="off"
+                              placeholder="Type to search available items..."
+                              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                           <div id="income-item-suggestions" class="autocomplete-suggestions hidden"></div>
+                           <div id="item-availability-display" class="mt-1 text-xs"></div>
+                           <div class="validation-message" id="error-item-sale-name"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                           <div>
+                              <label for="item-sale-quantity" class="block text-sm font-medium text-gray-700">Quantity
+                                 Sold</label>
+                              <input type="number" id="item-sale-quantity" name="item-sale-quantity" step="any"
+                                 min="0.01" required
+                                 class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                 placeholder="e.g., 1.5">
+                              <div class="validation-message" id="error-item-sale-quantity"></div>
+                           </div>
+                           <div>
+                              <label for="item-sale-price" class="block text-sm font-medium text-gray-700">
+                                 Selling Price/Unit
+                                 <span id="item-purchase-price-display"
+                                    class="text-xs text-gray-500 font-normal"></span>
+                              </label>
+                              <input type="number" id="item-sale-price" name="item-sale-price" step="0.01" min="0"
+                                 required
+                                 class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                 placeholder="e.g., 600.00">
+                              <div class="validation-message" id="error-item-sale-price"></div>
+                           </div>
+                        </div>
+                        <div id="calculated-total-sale-display">
+                           Total: Rs 0.00
+                        </div>
+                        <div>
+                           <label for="item-sale-description"
+                              class="block text-sm font-medium text-gray-700">Description (Optional)</label>
+                           <input type="text" id="item-sale-description" name="item-sale-description"
+                              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                              placeholder="e.g., Counter Sale, Customer Name">
+                        </div>
+
+                        <div class="pt-5">
+                           <button type="submit" id="record-item-sale-btn"
+                              class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                              <i class="fas fa-cash-register mr-2"></i> Record Item Sale & Deduct Stock
+                           </button>
+                        </div>
+                     </form>
+                  </div>
+               </div>
+
+               <div id="sale-history-container" class="lg:col-span-1">
+                  <h3 class="text-xl font-semibold mb-4">Item Sale History</h3>
+                  <div class="mb-4 p-4 bg-gray-50 rounded-lg shadow-sm">
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div>
+                           <label for="income-filter-start-date" class="block text-sm font-medium text-gray-700">From
+                              Date:</label>
+                           <input type="date" id="income-filter-start-date" name="income-filter-start-date"
+                              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                        <div>
+                           <label for="income-filter-end-date" class="block text-sm font-medium text-gray-700">To
+                              Date:</label>
+                           <input type="date" id="income-filter-end-date" name="income-filter-end-date"
+                              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                     </div>
+                     <div class="mt-3 flex space-x-2">
+                        <button id="filter-today" class="filter-button">Today</button>
+                        <button id="filter-last-7-days" class="filter-button">Last 7 Days</button>
+                        <button id="filter-last-30-days" class="filter-button">Last 30 Days</button>
+                        <button id="filter-all-time" class="filter-button active">All Time</button>
+                        <button id="apply-custom-filter"
+                           class="filter-button bg-blue-500 text-white hover:bg-blue-600">Apply Custom</button>
+                     </div>
+                  </div>
+
+                  <div class="overflow-x-auto bg-white rounded-lg shadow">
+                     <table id="income-table" class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                           <tr>
+                              <th scope="col"
+                                 class="sortable-header px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                 data-sort-key="date">Date <span class="sort-icon"></span></th>
+                              <th scope="col"
+                                 class="sortable-header px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                 data-sort-key="itemName">Item <span class="sort-icon"></span></th>
+                              <th scope="col"
+                                 class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                 Qty Sold</th>
+                              <th scope="col"
+                                 class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                 Sell Price/Unit</th>
+                              <th scope="col"
+                                 class="sortable-header px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                 data-sort-key="totalSale">Total Sale <span class="sort-icon"></span></th>
+                              <th scope="col"
+                                 class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                 COGS</th>
+                              <th scope="col"
+                                 class="sortable-header px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                 data-sort-key="grossProfit">Profit <span class="sort-icon"></span></th>
+                              <th scope="col"
+                                 class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                 Profit/Unit</th>
+                              <th scope="col"
+                                 class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                 Actions</th>
+                           </tr>
+                        </thead>
+                        <tbody id="income-table-body" class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                     </table>
+                  </div>
+                  <div id="income-pagination-controls" class="pagination-controls">
+                  </div>
+               </div>
+            </div>
+         </div>
+      </main>
+   </div>
+
+   <div id="custom-modal" class="modal-overlay">
+      <div class="modal-content">
+         <h3 id="modal-title" class="text-xl font-semibold mb-4">Confirmation</h3>
+         <p id="modal-message" class="text-gray-700 mb-6">Are you sure?</p>
+         <div id="modal-buttons" class="flex justify-end space-x-3">
+            <button id="modal-cancel-button"
+               class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition duration-150 ease-in-out">Cancel</button>
+            <button id="modal-confirm-button"
+               class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-150 ease-in-out">Confirm</button>
+            <button id="modal-ok-button"
+               class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-150 ease-in-out">OK</button>
+         </div>
+      </div>
+   </div>
+   <div id="edit-stock-modal" class="modal-overlay">
+      <div class="modal-content">
+         <h3 class="text-xl font-semibold mb-4">Edit Stock Batch</h3>
+         <form id="edit-stock-form" class="space-y-4"> </form>
+      </div>
+   </div>
+   <div id="adjust-stock-modal" class="modal-overlay">
+      <div class="modal-content">
+         <h3 class="text-xl font-semibold mb-1">Adjust Stock Quantity</h3>
+         <p class="text-sm text-gray-600 mb-4" id="adjust-item-info">Adjusting: Item Name</p>
+         <form id="adjust-stock-form" class="space-y-4"> </form>
+      </div>
+   </div>
+
+   <script>
+      // --- COPIED SHARED JS VARIABLES & FUNCTIONS ---
+      // Global State
+      let appData = { income: [], expenses: [], stock: [], metadata: { lastBackup: null } };
+      let modalConfirmCallback = null;
+      let modalCloseCallback = null;
+      let lossWarningShownForItem = {}; // To track if loss warning was shown for an item { itemName: true }
+      let lossCheckTimeout = null; // For debouncing loss check
+      let isLossAlertCurrentlyVisible = false; // To prevent form submission via Enter key
+      let isSaleFormCollapsed = false; // To track collapsible state of the sale form
+
+      // DOM Elements (Common - or query within functions)
+      const confirmModal = document.getElementById('custom-modal');
+      const modalTitle = document.getElementById('modal-title');
+      const modalMessage = document.getElementById('modal-message');
+      // modalButtons, modalConfirmBtn, modalCancelBtn, modalOkBtn are defined below in setupConfirmModal
+
+      const editModal = document.getElementById('edit-stock-modal'); // For consistency
+      const adjustModal = document.getElementById('adjust-stock-modal'); // For consistency
+
+      // --- Shared Functions (Copied from original script) ---
+
+      // Modal Setup and Functions
+      function setupConfirmModal() {
+         const modalConfirmBtn = document.getElementById('modal-confirm-button');
+         const modalCancelBtn = document.getElementById('modal-cancel-button');
+         const modalOkBtn = document.getElementById('modal-ok-button');
+
+         modalConfirmBtn?.addEventListener('click', () => {
+            if (typeof modalConfirmCallback === 'function') {
+               try { modalConfirmCallback(); } catch (error) { console.error("Confirm Callback Error:", error); showCustomAlert("An error occurred.", "Action Error"); }
+            }
+            if (typeof modalCloseCallback === 'function') { modalCloseCallback(); }
+            hideConfirmModal();
+         });
+         modalCancelBtn?.addEventListener('click', () => {
+            if (typeof modalCloseCallback === 'function') { modalCloseCallback(); }
+            hideConfirmModal();
+         });
+         modalOkBtn?.addEventListener('click', () => {
+            if (typeof modalCloseCallback === 'function') { modalCloseCallback(); }
+            hideConfirmModal();
+         });
+         confirmModal?.addEventListener('click', (event) => {
+            if (event.target === confirmModal) {
+               if (typeof modalCloseCallback === 'function') { modalCloseCallback(); }
+               hideConfirmModal();
+            }
+         });
+      }
+
+      function showConfirmModal(title, message, type = 'alert', confirmCallback = null, closeCallback = null) {
+         if (!confirmModal || !modalTitle || !modalMessage) return;
+         const modalConfirmBtn = document.getElementById('modal-confirm-button');
+         const modalCancelBtn = document.getElementById('modal-cancel-button');
+         const modalOkBtn = document.getElementById('modal-ok-button');
+         if (!modalConfirmBtn || !modalCancelBtn || !modalOkBtn) return;
+
+         modalTitle.textContent = title;
+         modalMessage.textContent = message;
+         modalConfirmCallback = confirmCallback;
+         modalCloseCallback = closeCallback; // Store the general close callback
+
+         // Specifically for loss alert, set the flag
+         if (title === "Potential Loss Alert") { // Or a more specific identifier if needed
+            isLossAlertCurrentlyVisible = true;
+         }
+
+         modalConfirmBtn.style.display = (type === 'confirm') ? 'inline-block' : 'none';
+         modalCancelBtn.style.display = (type === 'confirm') ? 'inline-block' : 'none';
+         modalOkBtn.style.display = (type === 'alert') ? 'inline-block' : 'none';
+         if (type === 'confirm' && !modalConfirmBtn.className.includes('bg-')) {
+            modalConfirmBtn.className = 'px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-150 ease-in-out';
+         }
+         confirmModal.classList.add('visible');
+      }
+
+      function hideConfirmModal() {
+         if (confirmModal && confirmModal.classList.contains('visible')) {
+            confirmModal.classList.remove('visible');
+            modalConfirmCallback = null;
+
+            // If a general closeCallback exists, call it
+            if (typeof modalCloseCallback === 'function') {
+               modalCloseCallback();
+            }
+            modalCloseCallback = null; // Clear it after use
+
+            // Reset loss alert flag regardless of which modal was hidden
+            // This assumes only one custom modal is shown at a time.
+            isLossAlertCurrentlyVisible = false;
+         }
+      }
+      function showCustomAlert(message, title = "Alert", onCloseAction = null) {
+         showConfirmModal(title, message, 'alert', null, onCloseAction);
+      }
+      function showCustomConfirm(message, onConfirm, onCloseAction = null, title = "Confirmation", confirmBtnClass = 'bg-red-600 hover:bg-red-700') {
+         const modalConfirmBtn = document.getElementById('modal-confirm-button');
+         if (!modalConfirmBtn) return;
+         if (typeof onConfirm === 'function') {
+            showConfirmModal(title, message, 'confirm', onConfirm, onCloseAction);
+            modalConfirmBtn.className = `px-4 py-2 text-white rounded-md transition duration-150 ease-in-out ${confirmBtnClass}`;
+         } else {
+            console.error("Invalid onConfirm param for showCustomConfirm.");
+            showCustomAlert("Internal error (confirm setup).", "Error", onCloseAction);
+         }
+      }
+      function setupEditModal() { /* Minimal setup, actual form logic in stock.html */
+         const editStockCancelBtn = document.getElementById('edit-stock-cancel-button'); // Assuming this ID exists in the shared modal HTML
+         editStockCancelBtn?.addEventListener('click', hideEditModal);
+         editModal?.addEventListener('click', (event) => { if (event.target === editModal) { hideEditModal(); } });
+      }
+      function showEditModal(stockItem) { /* Minimal show, actual form population in stock.html */
+         if (!editModal) return;
+         editModal.classList.add('visible');
+      }
+      function hideEditModal() {
+         if (editModal && editModal.classList.contains('visible')) {
+            editModal.classList.remove('visible');
+            // document.getElementById('edit-stock-form')?.reset(); // Form reset is in stock.html's specific logic
+         }
+      }
+      function setupAdjustModal() { /* Minimal setup */
+         const adjustStockCancelBtn = document.getElementById('adjust-stock-cancel-button'); // Assuming this ID exists
+         adjustStockCancelBtn?.addEventListener('click', hideAdjustModal);
+         adjustModal?.addEventListener('click', (event) => { if (event.target === adjustModal) { hideAdjustModal(); } });
+      }
+      function showAdjustModal(stockItem) { /* Minimal show */
+         if (!adjustModal) return;
+         adjustModal.classList.add('visible');
+      }
+      function hideAdjustModal() {
+         if (adjustModal && adjustModal.classList.contains('visible')) {
+            adjustModal.classList.remove('visible');
+            // document.getElementById('adjust-stock-form')?.reset(); // Form reset in stock.html
+         }
+      }
+
+      // Data Persistence & Backup
+      function saveDataToLocalStorage() {
+         try {
+            localStorage.setItem('shopMonitorData', JSON.stringify(appData));
+            console.log("Data saved to localStorage.");
+            updateLastBackupTime(new Date());
+         } catch (error) { console.error("Error saving data to localStorage:", error); showCustomAlert("Error saving data. Storage might be full.", "Save Error"); }
+      }
+      function loadDataFromLocalStorage() {
+         const dataString = localStorage.getItem('shopMonitorData');
+         if (dataString) {
+            try {
+               const loadedData = JSON.parse(dataString);
+               appData.income = Array.isArray(loadedData.income) ? loadedData.income : [];
+               appData.expenses = Array.isArray(loadedData.expenses) ? loadedData.expenses : [];
+               appData.stock = Array.isArray(loadedData.stock) ? loadedData.stock : [];
+               appData.metadata = typeof loadedData.metadata === 'object' && loadedData.metadata !== null ? loadedData.metadata : { lastBackup: null };
+               appData.stock.forEach(item => { if (item.initialQuantity === undefined || item.initialQuantity === null) item.initialQuantity = item.quantity; });
+               console.log("Data loaded from localStorage.");
+            } catch (error) { console.error("Error loading data from localStorage:", error); showCustomAlert("Error loading data. It might be corrupted. Starting fresh.", "Load Error"); appData = { income: [], expenses: [], stock: [], metadata: { lastBackup: null } }; }
+         } else { console.log("No saved data found in localStorage. Starting fresh."); appData = { income: [], expenses: [], stock: [], metadata: { lastBackup: null } }; }
+         updateLastBackupDisplay();
+      }
+      function handleSaveAndBackup() {
+         saveDataToLocalStorage(); // Save current state first
+         try {
+            const timestamp = new Date().toISOString().slice(0, 10); //YYYY-MM-DD
+            if (appData.income.length > 0) downloadCsv(generateCsv(appData.income, ['id', 'date', 'description', 'itemName', 'quantitySold', 'sellingPricePerUnit', 'totalSale', 'calculatedCogs', 'grossProfit', 'profitPerUnit']), `backup-income-${timestamp}.csv`);
+            if (appData.expenses.length > 0) downloadCsv(generateCsv(appData.expenses, ['id', 'date', 'amount', 'category', 'description']), `backup-expenses-${timestamp}.csv`);
+            if (appData.stock.length > 0) downloadCsv(generateCsv(appData.stock, ['id', 'name', 'unit', 'quantity', 'initialQuantity', 'purchasePrice', 'dateBought', 'expiryDate']), `backup-stock-${timestamp}.csv`);
+            showCustomAlert("Data saved & backup files download initiated!", "Backup Successful");
+         } catch (error) { console.error("Backup Generation/Download Error:", error); showCustomAlert("Data saved, but backup file generation failed.", "Backup Error"); }
+      }
+      function generateCsv(data, headers) {
+         if (!Array.isArray(data) || data.length === 0) return '';
+         const columns = headers || Object.keys(data[0] || {});
+         if (columns.length === 0) return '';
+         let csvContent = columns.map(col => `"${String(col).replace(/"/g, '""')}"`).join(',') + '\n';
+         data.forEach(row => {
+            const values = columns.map(col => {
+               let value = row[col];
+               if (value === null || value === undefined) value = '';
+               else if (typeof value === 'object') value = JSON.stringify(value); // Stringify objects/arrays
+               value = String(value).replace(/"/g, '""'); // Escape double quotes
+               if (String(value).includes(',')) value = `"${value}"`; // Enclose in quotes if it contains a comma
+               return value;
+            });
+            csvContent += values.join(',') + '\n';
+         });
+         return csvContent;
+      }
+      function downloadCsv(csvContent, filename) {
+         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+         const link = document.createElement("a");
+         if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url); link.setAttribute("download", filename);
+            link.style.visibility = 'hidden'; document.body.appendChild(link);
+            link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
+         } else { showCustomAlert("CSV download not directly supported by your browser.", "Download Error"); }
+      }
+
+      // Utility Functions
+      function generateId(prefix = 'id') { return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`; }
+      function formatCurrency(amount) {
+         const formatter = new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+         const numAmount = Number(amount);
+         if (isNaN(numAmount)) { return 'Rs 0.00'; }
+         return formatter.format(numAmount).replace('LKR', 'Rs');
+      }
+      function formatDate(dateString) {
+         if (!dateString) return 'N/A';
+         try { return new Date(dateString + 'T00:00:00').toLocaleDateString('en-CA'); }
+         catch (e) { console.error("Error formatting date:", dateString, e); return 'Invalid Date'; }
+      }
+      function getShortDate(date = new Date()) {
+         if (!(date instanceof Date) || isNaN(date)) { date = new Date(); } // Ensure valid date or default to now
+         return date.toISOString().slice(0, 10);
+      }
+      function updateLastBackupTime(date) {
+         if (date instanceof Date && !isNaN(date)) { appData.metadata.lastBackup = date.toISOString(); updateLastBackupDisplay(); }
+      }
+      function updateLastBackupDisplay() {
+         const infoElement = document.querySelector('#last-backup-info');
+         let displayText = "Never";
+         if (appData.metadata?.lastBackup) {
+            try { displayText = new Date(appData.metadata.lastBackup).toLocaleString(); } catch (e) { displayText = "Invalid date"; }
+         }
+         if (infoElement) { infoElement.textContent = displayText; }
+      }
+
+      // Autocomplete Helpers
+      function getUniqueItemNames(limit = 0) {
+         const names = appData.stock.map(item => item.name).reverse();
+         const uniqueNames = [...new Set(names)];
+         return limit > 0 ? uniqueNames.slice(0, limit) : uniqueNames;
+      }
+      function getAvailableItemNames(limit = 0) {
+         const names = appData.stock.filter(item => item.quantity > 0).map(item => item.name).sort();
+         const uniqueNames = [...new Set(names)];
+         return limit > 0 ? uniqueNames.slice(0, limit) : uniqueNames;
+      }
+      function showSuggestions(names, inputElement, containerElement) {
+         if (!containerElement || !inputElement) return;
+         containerElement.innerHTML = '';
+         const inputValue = inputElement.value.toLowerCase().trim();
+         if (names.length === 0 && inputValue !== '') {
+            const noMatchDiv = document.createElement('div'); noMatchDiv.textContent = 'No matching items found.'; noMatchDiv.className = 'suggestion-item no-match'; containerElement.appendChild(noMatchDiv); containerElement.classList.remove('hidden'); return;
+         } else if (names.length === 0 && inputValue === '') { hideSuggestions(containerElement); return; }
+         names.forEach(name => {
+            const div = document.createElement('div'); div.className = 'suggestion-item';
+            if (inputValue.length > 0) {
+               const index = name.toLowerCase().indexOf(inputValue);
+               if (index !== -1) { div.innerHTML = `${name.substring(0, index)}<span class="highlight">${name.substring(index, index + inputValue.length)}</span>${name.substring(index + inputValue.length)}`; }
+               else { div.textContent = name; }
+            } else { div.textContent = name; }
+            div.addEventListener('mousedown', (e) => {
+               e.preventDefault();
+               inputElement.value = name;
+               hideSuggestions(containerElement);
+               updateItemAvailabilityDisplay(name);
+               const itemSalePriceInput = document.getElementById('item-sale-price');
+               checkPotentialLoss(inputElement, itemSalePriceInput); // Check loss when item selected
+            });
+            containerElement.appendChild(div);
+         });
+         containerElement.classList.remove('hidden');
+      }
+      function hideSuggestions(containerElement) {
+         if (containerElement && !containerElement.classList.contains('hidden')) { containerElement.classList.add('hidden'); containerElement.innerHTML = ''; }
+      }
+
+      // Dashboard Update Logic
+      function updateDashboardSummary() {
+         const stockValueEl = document.getElementById('dashboard-stock-value');
+         const grossProfitEl = document.getElementById('dashboard-gross-profit');
+         const netProfitEl = document.getElementById('dashboard-net-profit');
+         if (stockValueEl) {
+            const totalStockValue = appData.stock.reduce((sum, item) => (Number(item.quantity) || 0) * (Number(item.purchasePrice) || 0) + sum, 0);
+            stockValueEl.textContent = formatCurrency(totalStockValue);
+         }
+         if (grossProfitEl || netProfitEl) {
+            const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30); const thirtyDaysAgoStr = getShortDate(thirtyDaysAgo);
+            const recentIncome = appData.income.filter(inc => inc.date >= thirtyDaysAgoStr);
+            const recentExpenses = appData.expenses.filter(exp => exp.date >= thirtyDaysAgoStr);
+            const totalRecentGrossProfit = recentIncome.reduce((sum, inc) => sum + (Number(inc.grossProfit) || 0), 0);
+            const totalRecentExpenses = recentExpenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+            const totalRecentNetProfit = totalRecentGrossProfit - totalRecentExpenses;
+            if (grossProfitEl) grossProfitEl.textContent = formatCurrency(totalRecentGrossProfit);
+            if (netProfitEl) netProfitEl.textContent = formatCurrency(totalRecentNetProfit);
+         }
+      }
+
+
+      // --- SECTION-SPECIFIC JS (Income / Sales) ---
+
+      // Pagination state variables for Income table
+      let currentIncomePage = 1;
+      const incomeRowsPerPage = 10;
+
+      // Filter and Sort state variables for Income table
+      let incomeFilterStartDate = '';
+      let incomeFilterEndDate = '';
+      let incomeFilterPreset = 'all-time'; // 'today', 'last-7-days', 'last-30-days', 'custom', 'all-time'
+      let incomeSortColumn = 'date'; // Default sort column
+      let incomeSortDirection = 'desc'; // Default sort direction ('asc' or 'desc')
+
+
+      // Helper function to display a validation error for a specific field
+      function displayValidationError(inputId, message) {
+         const inputElement = document.getElementById(inputId);
+         const errorElement = document.getElementById(`error-${inputId}`);
+         if (inputElement) inputElement.classList.add('input-error');
+         if (errorElement) { errorElement.textContent = message; errorElement.style.display = 'block'; }
+      }
+      function clearValidationError(inputId) {
+         const inputElement = document.getElementById(inputId);
+         const errorElement = document.getElementById(`error-${inputId}`);
+         if (inputElement) inputElement.classList.remove('input-error');
+         if (errorElement) { errorElement.textContent = ''; errorElement.style.display = 'none'; }
+      }
+      function clearAllValidationMessages(formElement) {
+         formElement.querySelectorAll('.validation-message').forEach(msg => { msg.textContent = ''; msg.style.display = 'none'; });
+         formElement.querySelectorAll('.input-error').forEach(input => input.classList.remove('input-error'));
+      }
+      function updateCalculatedTotalSale() {
+         const quantityInput = document.getElementById('item-sale-quantity');
+         const priceInput = document.getElementById('item-sale-price');
+         const displayElement = document.getElementById('calculated-total-sale-display');
+         if (!quantityInput || !priceInput || !displayElement) return;
+         const quantity = parseFloat(quantityInput.value) || 0;
+         const price = parseFloat(priceInput.value) || 0;
+         displayElement.textContent = `Total: ${formatCurrency(quantity * price)}`;
+      }
+      function updateItemAvailabilityDisplay(itemName) {
+         const displayElement = document.getElementById('item-availability-display');
+         if (!displayElement) return;
+         if (!itemName) { displayElement.textContent = ''; displayElement.className = 'mt-1 text-xs'; return; }
+         const itemBatches = appData.stock.filter(batch => batch.name.toLowerCase() === itemName.toLowerCase() && batch.quantity > 0);
+         const totalAvailable = itemBatches.reduce((sum, batch) => sum + batch.quantity, 0);
+         const unit = itemBatches.length > 0 ? itemBatches[0].unit : 'units';
+         displayElement.classList.remove('available', 'low-stock', 'out-of-stock', 'not-found');
+         if (itemBatches.length > 0) {
+            if (totalAvailable > 10) { displayElement.textContent = `Available: ${totalAvailable.toFixed(2)} ${unit}`; displayElement.classList.add('available'); }
+            else if (totalAvailable > 0) { displayElement.textContent = `Low Stock: ${totalAvailable.toFixed(2)} ${unit}`; displayElement.classList.add('low-stock'); }
+            else { displayElement.textContent = 'Out of Stock'; displayElement.classList.add('out-of-stock'); }
+         } else {
+            const itemExistsAtAll = appData.stock.some(batch => batch.name.toLowerCase() === itemName.toLowerCase());
+            if (itemExistsAtAll) { displayElement.textContent = 'Out of Stock'; displayElement.classList.add('out-of-stock'); }
+            else { displayElement.textContent = 'Item not found in stock records.'; displayElement.classList.add('not-found'); }
+         }
+      }
+
+      // Function to check for potential loss when setting selling price
+      function checkPotentialLoss(itemNameInput, sellingPriceInput) {
+         const itemName = itemNameInput.value.trim();
+         const sellingPrice = parseFloat(sellingPriceInput.value);
+         const purchasePriceDisplay = document.getElementById('item-purchase-price-display');
+
+         sellingPriceInput.classList.remove('input-error');
+         clearValidationError('item-sale-price');
+         if (purchasePriceDisplay) purchasePriceDisplay.textContent = '';
+
+         if (!itemName) {
+            delete lossWarningShownForItem[itemName];
+            return;
+         }
+
+         const itemBatches = appData.stock
+            .filter(batch => batch.name.toLowerCase() === itemName.toLowerCase() && batch.quantity > 0)
+            .sort((a, b) => new Date(a.dateBought) - new Date(b.dateBought));
+
+         if (itemBatches.length === 0) {
+            delete lossWarningShownForItem[itemName];
+            if (purchasePriceDisplay) purchasePriceDisplay.textContent = '- Cost: N/A';
+            return;
+         }
+
+         const purchasePrice = itemBatches[0].purchasePrice;
+         if (purchasePriceDisplay) {
+            purchasePriceDisplay.innerHTML = `- Cost: <span class="font-semibold">${formatCurrency(purchasePrice)}</span>`;
+         }
+
+         if (isNaN(sellingPrice) || sellingPrice < 0) {
+            delete lossWarningShownForItem[itemName];
+            return;
+         }
+
+         if (sellingPrice < purchasePrice) {
+            sellingPriceInput.classList.add('input-error');
+            if (!lossWarningShownForItem[itemName]) {
+               const recordSaleBtn = document.getElementById('record-item-sale-btn');
+               if (recordSaleBtn) recordSaleBtn.disabled = true;
+
+               showCustomAlert(
+                  `Warning: Selling price (${formatCurrency(sellingPrice)}) for '${itemName}' is below its purchase price (${formatCurrency(purchasePrice)}). This will result in a loss.`,
+                  "Potential Loss Alert",
+                  () => {
+                     if (recordSaleBtn) recordSaleBtn.disabled = false;
+                     sellingPriceInput.focus();
+                  }
+               );
+               lossWarningShownForItem[itemName] = true;
+            }
+         } else {
+            delete lossWarningShownForItem[itemName];
+         }
+      }
+
+
+      function setupIncomeAutocomplete() {
+         const itemNameInput = document.getElementById('item-sale-name');
+         const itemSalePriceInput = document.getElementById('item-sale-price');
+         const suggestionsContainer = document.getElementById('income-item-suggestions');
+
+         if (!itemNameInput || !suggestionsContainer || !itemSalePriceInput) {
+            console.error("Income autocomplete or price input elements not found!");
+            return;
+         }
+
+         itemNameInput.addEventListener('focus', () => {
+            const initialAvailable = getAvailableItemNames(5); const currentVal = itemNameInput.value.trim();
+            if (currentVal === '' || initialAvailable.length > 0) { showSuggestions(initialAvailable, itemNameInput, suggestionsContainer); }
+            updateItemAvailabilityDisplay(currentVal);
+            clearTimeout(lossCheckTimeout);
+            lossCheckTimeout = setTimeout(() => { checkPotentialLoss(itemNameInput, itemSalePriceInput); }, 750);
+         });
+         itemNameInput.addEventListener('input', () => {
+            const value = itemNameInput.value.toLowerCase().trim(); clearValidationError('item-sale-name');
+            const availableNames = getAvailableItemNames();
+            const filteredNames = availableNames.filter(name => name.toLowerCase().includes(value)).slice(0, 7);
+            showSuggestions(filteredNames, itemNameInput, suggestionsContainer);
+            updateItemAvailabilityDisplay(itemNameInput.value.trim());
+            clearTimeout(lossCheckTimeout);
+            lossCheckTimeout = setTimeout(() => { checkPotentialLoss(itemNameInput, itemSalePriceInput); }, 750);
+         });
+         itemNameInput.addEventListener('blur', () => {
+            setTimeout(() => {
+               hideSuggestions(suggestionsContainer);
+               updateItemAvailabilityDisplay(itemNameInput.value.trim());
+               if (!suggestionsContainer.classList.contains('hidden')) {
+                  checkPotentialLoss(itemNameInput, itemSalePriceInput);
+               }
+            }, 150);
+         });
+      }
+
+      // Income Table Filtering Logic
+      function filterIncomeData(data) {
+         let filteredData = [...data];
+
+         if (incomeFilterPreset === 'custom' && incomeFilterStartDate && incomeFilterEndDate) {
+            if (incomeFilterEndDate < incomeFilterStartDate) {
+               showCustomAlert("'To Date' cannot be before 'From Date' for custom filter.", "Filter Error");
+               incomeFilterPreset = 'all-time';
+               document.getElementById('income-filter-start-date').value = '';
+               document.getElementById('income-filter-end-date').value = '';
+               updateActiveFilterButton();
+            } else {
+               filteredData = filteredData.filter(item => {
+                  return item.date >= incomeFilterStartDate && item.date <= incomeFilterEndDate;
+               });
+            }
+         } else if (incomeFilterPreset !== 'all-time' && incomeFilterStartDate && incomeFilterEndDate) {
+            filteredData = filteredData.filter(item => {
+               return item.date >= incomeFilterStartDate && item.date <= incomeFilterEndDate;
+            });
+         }
+         return filteredData;
+      }
+
+
+      // Income Table Sorting Logic
+      function sortIncomeData(data) {
+         const sortedData = [...data];
+         sortedData.sort((a, b) => {
+            let valA = a[incomeSortColumn];
+            let valB = b[incomeSortColumn];
+
+            if (incomeSortColumn === 'date') {
+               valA = new Date(a.date).getTime();
+               valB = new Date(b.date).getTime();
+            } else if (incomeSortColumn === 'totalSale' || incomeSortColumn === 'grossProfit') {
+               valA = Number(a[incomeSortColumn]) || 0;
+               valB = Number(b[incomeSortColumn]) || 0;
+            } else if (typeof valA === 'string') {
+               valA = valA.toLowerCase();
+               valB = valB.toLowerCase();
+            }
+
+            let comparison = 0;
+            if (valA < valB) comparison = -1;
+            else if (valA > valB) comparison = 1;
+            return incomeSortDirection === 'asc' ? comparison : comparison * -1;
+         });
+         return sortedData;
+      }
+
+      // Update sort indicators for income table
+      function updateIncomeSortIndicators() {
+         document.querySelectorAll('#income-table .sortable-header').forEach(header => {
+            const key = header.getAttribute('data-sort-key');
+            const iconSpan = header.querySelector('.sort-icon');
+            if (!iconSpan) return;
+            header.classList.remove('sort-asc', 'sort-desc');
+            iconSpan.innerHTML = '';
+            if (key === incomeSortColumn) {
+               if (incomeSortDirection === 'asc') { header.classList.add('sort-asc'); iconSpan.innerHTML = '<i class="fas fa-sort-up"></i>'; }
+               else { header.classList.add('sort-desc'); iconSpan.innerHTML = '<i class="fas fa-sort-down"></i>'; }
+            }
+         });
+      }
+
+      // Handle click on sortable income table headers
+      function handleIncomeSort(key) {
+         if (incomeSortColumn === key) {
+            incomeSortDirection = incomeSortDirection === 'asc' ? 'desc' : 'asc';
+         } else {
+            incomeSortColumn = key;
+            incomeSortDirection = (key === 'itemName') ? 'asc' : 'desc';
+         }
+         currentIncomePage = 1;
+         displayIncomeRecords();
+      }
+
+      // Update active state of filter buttons
+      function updateActiveFilterButton() {
+         document.querySelectorAll('#content-area .filter-button').forEach(button => {
+            button.classList.remove('active');
+            if (button.id === `filter-${incomeFilterPreset.replace('_', '-')}`) {
+               button.classList.add('active');
+            }
+         });
+         const applyCustomBtn = document.getElementById('apply-custom-filter');
+         if (incomeFilterPreset === 'custom' && applyCustomBtn) {
+            applyCustomBtn.classList.add('active');
+         } else if (applyCustomBtn) {
+            applyCustomBtn.classList.remove('active');
+         }
+      }
+
+      // Setup filter event listeners
+      function setupIncomeFilters() {
+         const startDateInput = document.getElementById('income-filter-start-date');
+         const endDateInput = document.getElementById('income-filter-end-date');
+
+         document.getElementById('filter-today')?.addEventListener('click', () => {
+            const today = getShortDate();
+            incomeFilterStartDate = today;
+            incomeFilterEndDate = today;
+            incomeFilterPreset = 'today';
+            startDateInput.value = today;
+            endDateInput.value = today;
+            currentIncomePage = 1; displayIncomeRecords(); updateActiveFilterButton();
+         });
+         document.getElementById('filter-last-7-days')?.addEventListener('click', () => {
+            const today = new Date();
+            const endDate = getShortDate(today);
+            const startDate = getShortDate(new Date(today.setDate(today.getDate() - 6)));
+            incomeFilterStartDate = startDate;
+            incomeFilterEndDate = endDate;
+            incomeFilterPreset = 'last-7-days';
+            startDateInput.value = startDate;
+            endDateInput.value = endDate;
+            currentIncomePage = 1; displayIncomeRecords(); updateActiveFilterButton();
+         });
+         document.getElementById('filter-last-30-days')?.addEventListener('click', () => {
+            const today = new Date();
+            const endDate = getShortDate(today);
+            const startDate = getShortDate(new Date(today.setDate(today.getDate() - 29)));
+            incomeFilterStartDate = startDate;
+            incomeFilterEndDate = endDate;
+            incomeFilterPreset = 'last-30-days';
+            startDateInput.value = startDate;
+            endDateInput.value = endDate;
+            currentIncomePage = 1; displayIncomeRecords(); updateActiveFilterButton();
+         });
+         document.getElementById('filter-all-time')?.addEventListener('click', () => {
+            incomeFilterStartDate = '';
+            incomeFilterEndDate = '';
+            incomeFilterPreset = 'all-time';
+            startDateInput.value = '';
+            endDateInput.value = '';
+            currentIncomePage = 1; displayIncomeRecords(); updateActiveFilterButton();
+         });
+         document.getElementById('apply-custom-filter')?.addEventListener('click', () => {
+            const start = startDateInput.value;
+            const end = endDateInput.value;
+            if (!start || !end) {
+               showCustomAlert("Please select both a 'From Date' and a 'To Date' for custom filter.", "Custom Filter Error");
+               return;
+            }
+            if (end < start) {
+               showCustomAlert("'To Date' cannot be before 'From Date'.", "Custom Filter Error");
+               return;
+            }
+            incomeFilterStartDate = start;
+            incomeFilterEndDate = end;
+            incomeFilterPreset = 'custom';
+            currentIncomePage = 1; displayIncomeRecords(); updateActiveFilterButton();
+         });
+
+         ['filter-today', 'filter-last-7-days', 'filter-last-30-days', 'filter-all-time'].forEach(id => {
+            document.getElementById(id)?.addEventListener('click', () => {
+               if (id !== 'filter-all-time') {
+                  // Dates are set by the preset handlers
+               } else {
+                  startDateInput.value = '';
+                  endDateInput.value = '';
+               }
+            });
+         });
+         startDateInput.addEventListener('change', () => { if (incomeFilterPreset !== 'custom') updateActiveFilterButton(); });
+         endDateInput.addEventListener('change', () => { if (incomeFilterPreset !== 'custom') updateActiveFilterButton(); });
+      }
+
+
+      function handleRecordItemSale(event) {
+         event.preventDefault();
+
+         if (isLossAlertCurrentlyVisible) {
+            console.log("Form submission prevented due to active loss alert.");
+            return;
+         }
+
+         const form = event.target;
+         const recordButton = document.getElementById('record-item-sale-btn');
+         const originalButtonHTML = recordButton.innerHTML;
+         clearAllValidationMessages(form);
+         recordButton.disabled = true; recordButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Recording...';
+         const restoreButtonState = () => { recordButton.disabled = false; recordButton.innerHTML = originalButtonHTML; };
+
+         const saleDate = form['item-sale-date'].value;
+         const itemName = form['item-sale-name'].value.trim();
+         const quantitySold = parseFloat(form['item-sale-quantity'].value);
+         const sellingPricePerUnit = parseFloat(form['item-sale-price'].value);
+         const description = form['item-sale-description'].value.trim();
+         let validationFailed = false;
+         if (!saleDate) { displayValidationError('item-sale-date', 'Sale date is required.'); validationFailed = true; }
+         if (!itemName) { displayValidationError('item-sale-name', 'Item name is required.'); validationFailed = true; }
+         if (isNaN(quantitySold) || quantitySold <= 0) { displayValidationError('item-sale-quantity', 'Quantity must be a number greater than 0.'); validationFailed = true; }
+         if (isNaN(sellingPricePerUnit) || sellingPricePerUnit < 0) { displayValidationError('item-sale-price', 'Selling price must be a valid number.'); validationFailed = true; }
+         if (validationFailed) { showCustomAlert("Please correct the highlighted errors.", "Validation Error", restoreButtonState); return; }
+
+         const availableItemNames = getAvailableItemNames();
+         if (!availableItemNames.includes(itemName)) {
+            displayValidationError('item-sale-name', `"${itemName}" not found in available stock.`);
+            showCustomAlert(`Item "${itemName}" not found in available stock.`, "Invalid Item", restoreButtonState); return;
+         }
+         let availableQuantity = 0;
+         const itemBatches = appData.stock.filter(batch => batch.name === itemName && batch.quantity > 0).sort((a, b) => new Date(a.dateBought) - new Date(b.dateBought));
+         availableQuantity = itemBatches.reduce((sum, batch) => sum + batch.quantity, 0);
+         if (quantitySold > availableQuantity) {
+            displayValidationError('item-sale-quantity', `Not enough stock. Only ${availableQuantity.toFixed(2)} available.`);
+            showCustomAlert(`Not enough stock for ${itemName}. Only ${availableQuantity.toFixed(2)} ${itemBatches[0]?.unit || 'units'} available.`, "Stock Error", restoreButtonState); return;
+         }
+
+         const totalSaleValue = quantitySold * sellingPricePerUnit;
+         showCustomConfirm(
+            `Record sale of ${quantitySold.toFixed(2)} units of "${itemName}" for ${formatCurrency(totalSaleValue)}? This will deduct stock using FIFO.`,
+            () => {
+               let quantityToDeduct = quantitySold; let itemCogs = 0; let deductionError = false;
+               for (const batch of itemBatches) {
+                  if (quantityToDeduct <= 0.0001) break;
+                  const originalBatch = appData.stock.find(b => b.id === batch.id);
+                  if (!originalBatch) { deductionError = true; break; }
+                  const deductFromThisBatch = Math.min(quantityToDeduct, originalBatch.quantity);
+                  itemCogs += deductFromThisBatch * originalBatch.purchasePrice;
+                  originalBatch.quantity -= deductFromThisBatch; quantityToDeduct -= deductFromThisBatch;
+               }
+               if (deductionError || quantityToDeduct > 0.0001) {
+                  showCustomAlert("Error during stock deduction. Sale not recorded.", "Deduction Error", restoreButtonState);
+                  loadDataFromLocalStorage(); displayIncomeRecords(); return;
+               }
+               const grossProfit = totalSaleValue - itemCogs;
+               const profitPerUnit = quantitySold > 0 ? grossProfit / quantitySold : 0;
+               const newIncomeRecord = { id: generateId('inc'), date: saleDate, description: description || `Sale: ${itemName}`, itemName: itemName, quantitySold: quantitySold, sellingPricePerUnit: sellingPricePerUnit, totalSale: totalSaleValue, calculatedCogs: itemCogs, grossProfit: grossProfit, profitPerUnit: profitPerUnit };
+               appData.income.push(newIncomeRecord);
+               saveDataToLocalStorage(); form.reset(); form['item-sale-date'].value = getShortDate();
+               updateCalculatedTotalSale(); updateItemAvailabilityDisplay(''); clearAllValidationMessages(form);
+               document.getElementById('item-purchase-price-display').textContent = ''; // Clear purchase price display
+               lossWarningShownForItem = {}; // Reset loss warnings after successful sale
+
+               currentIncomePage = 1;
+               setupIncomeAutocomplete();
+               updateIncomeSummaryBox(); // Update summary after new sale
+               displayIncomeRecords();
+               updateDashboardSummary();
+               showCustomAlert("Item sale recorded and stock deducted.", "Sale Recorded", restoreButtonState);
+            },
+            restoreButtonState, "Confirm Item Sale", 'bg-green-600 hover:bg-green-700'
+         );
+      }
+
+      function changeIncomePage(newPage) {
+         const totalIncomeRecords = filterIncomeData(appData.income).length; // Filter first for accurate total
+         const totalPages = Math.ceil(totalIncomeRecords / incomeRowsPerPage);
+         if (newPage < 1 || (newPage > totalPages && totalPages > 0)) { // Allow page 1 even if totalPages is 0
+            if (totalPages === 0 && newPage === 1) { /* allow */ } else { return; }
+         }
+         currentIncomePage = newPage;
+         displayIncomeRecords();
+      }
+
+      function renderIncomePaginationControls(totalItems) {
+         const controlsContainer = document.getElementById('income-pagination-controls');
+         if (!controlsContainer) return;
+         const totalPages = Math.ceil(totalItems / incomeRowsPerPage);
+         controlsContainer.innerHTML = '';
+         if (totalPages <= 1) return;
+         const pageInfo = document.createElement('div'); pageInfo.className = 'page-info';
+         pageInfo.textContent = `Page ${currentIncomePage} of ${totalPages} (${totalItems} records)`;
+         const buttonsContainer = document.createElement('div'); buttonsContainer.className = 'flex space-x-2';
+         const prevButton = document.createElement('button'); prevButton.textContent = 'Previous'; prevButton.className = 'pagination-button';
+         prevButton.disabled = currentIncomePage === 1; prevButton.addEventListener('click', () => changeIncomePage(currentIncomePage - 1));
+         const nextButton = document.createElement('button'); nextButton.textContent = 'Next'; nextButton.className = 'pagination-button';
+         nextButton.disabled = currentIncomePage === totalPages; nextButton.addEventListener('click', () => changeIncomePage(currentIncomePage + 1));
+         buttonsContainer.appendChild(prevButton); buttonsContainer.appendChild(nextButton);
+         controlsContainer.appendChild(pageInfo); controlsContainer.appendChild(buttonsContainer);
+      }
+
+      // Function to update the income summary box
+      function updateIncomeSummaryBox() {
+         const summaryBox = document.getElementById('income-summary-box');
+         if (!summaryBox) {
+            console.error("Income summary box element not found!");
+            return;
+         }
+
+         const todayStr = getShortDate();
+         const todaysSales = appData.income.filter(sale => sale.date === todayStr);
+
+         let totalSalesToday = 0;
+         let totalProfitToday = 0;
+         todaysSales.forEach(sale => {
+            totalSalesToday += (Number(sale.totalSale) || 0);
+            totalProfitToday += (Number(sale.grossProfit) || 0);
+         });
+
+         const numberOfSalesToday = todaysSales.length;
+         const averageSaleValueToday = numberOfSalesToday > 0 ? totalSalesToday / numberOfSalesToday : 0;
+
+         summaryBox.innerHTML = `
+                <div class="summary-item summary-item-green">
+                    <i class="fas fa-dollar-sign summary-icon"></i>
+                    <span class="summary-value" id="summary-total-sales-today">${formatCurrency(totalSalesToday)}</span>
+                    <span class="summary-label">Total Sales Today</span>
+                </div>
+                <div class="summary-item summary-item-blue">
+                     <i class="fas fa-chart-line summary-icon"></i>
+                    <span class="summary-value" id="summary-total-profit-today">${formatCurrency(totalProfitToday)}</span>
+                    <span class="summary-label">Total Profit Today</span>
+                </div>
+                <div class="summary-item summary-item-purple">
+                    <i class="fas fa-receipt summary-icon"></i>
+                    <span class="summary-value" id="summary-num-sales-today">${numberOfSalesToday}</span>
+                    <span class="summary-label">Number of Sales Today</span>
+                </div>
+                <div class="summary-item summary-item-amber">
+                    <i class="fas fa-balance-scale-right summary-icon"></i>
+                    <span class="summary-value" id="summary-avg-sale-today">${formatCurrency(averageSaleValueToday)}</span>
+                    <span class="summary-label">Average Sale Value Today</span>
+                </div>
+            `;
+      }
+
+      // Function to show/hide loading indicator in the income table
+      function showIncomeTableLoadingIndicator(show) {
+         const tableBody = document.getElementById('income-table-body');
+         const colSpan = 9; // Number of columns in the income table
+         if (!tableBody) return;
+
+         if (show) {
+            tableBody.innerHTML = `
+                    <tr class="table-loading-spinner">
+                        <td colspan="${colSpan}">
+                            <i class="fas fa-spinner fa-spin"></i> Loading sales records...
+                        </td>
+                    </tr>`;
+         } else {
+            // The displayIncomeRecords function will clear this when it populates data or the "no records" message
+         }
+      }
+
+
+      function displayIncomeRecords() {
+         const tableBody = document.getElementById('income-table-body');
+         if (!tableBody) { console.error("Income table body not found!"); return; }
+
+         showIncomeTableLoadingIndicator(true); // Show loading indicator
+
+         // Simulate a small delay for loading, remove in production if data processing is fast
+         setTimeout(() => {
+            tableBody.innerHTML = ''; // Clear existing content (including loading indicator if any)
+            const colSpan = 9;
+
+            const filteredData = filterIncomeData(appData.income);
+            const sortedAndFilteredData = sortIncomeData(filteredData);
+
+            const startIndex = (currentIncomePage - 1) * incomeRowsPerPage;
+            const endIndex = startIndex + incomeRowsPerPage;
+            const paginatedIncome = sortedAndFilteredData.slice(startIndex, endIndex);
+
+            if (paginatedIncome.length === 0) {
+               let message = "No item sales recorded yet. Start by adding a sale!";
+               if (appData.income.length > 0 && filteredData.length === 0) {
+                  message = "No sales records match the current filters.";
+               } else if (appData.income.length > 0 && paginatedIncome.length === 0) {
+                  message = "No sales records on this page for the current filters.";
+               }
+
+               tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="${colSpan}" class="text-center py-10 text-gray-500">
+                                <div class="flex flex-col items-center justify-center">
+                                    <i class="fas fa-receipt fa-3x text-gray-400 mb-3"></i>
+                                    <p class="text-lg font-medium">${message}</p>
+                                    ${appData.income.length === 0 ? '<p class="text-sm text-gray-400">Use the form on the left to record your first sale.</p>' : ''}
+                                </div>
+                            </td>
+                        </tr>`;
+            } else {
+               paginatedIncome.forEach(record => {
+                  const row = document.createElement('tr');
+                  const itemName = record.itemName ?? 'N/A'; const quantitySold = record.quantitySold ?? 0;
+                  const sellingPricePerUnit = record.sellingPricePerUnit ?? 0; const totalSale = record.totalSale ?? (quantitySold * sellingPricePerUnit);
+                  const calculatedCogs = record.calculatedCogs ?? 0; const grossProfit = record.grossProfit ?? (totalSale - calculatedCogs);
+                  const profitPerUnit = record.profitPerUnit ?? (quantitySold > 0 ? grossProfit / quantitySold : 0);
+
+                  let profitIcon = '';
+                  if (grossProfit > 0) {
+                     profitIcon = '<i class="fas fa-arrow-up text-green-500 ml-1"></i>';
+                  } else if (grossProfit < 0) {
+                     profitIcon = '<i class="fas fa-arrow-down text-red-500 ml-1"></i>';
+                  }
+
+                  const profitColorClass = grossProfit > 0 ? 'text-green-600' : (grossProfit < 0 ? 'text-red-600' : 'text-gray-700');
+                  const profitPerUnitColorClass = profitPerUnit > 0 ? 'text-green-600' : (profitPerUnit < 0 ? 'text-red-600' : 'text-gray-700');
+
+                  row.innerHTML = `
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${formatDate(record.date)}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900" title="${record.description || ''}">${itemName}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">${quantitySold.toFixed(2)}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">${formatCurrency(sellingPricePerUnit)}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">${formatCurrency(totalSale)}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">${formatCurrency(calculatedCogs)}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-right ${profitColorClass}">${formatCurrency(grossProfit)} ${profitIcon}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-right ${profitPerUnitColorClass}">${formatCurrency(profitPerUnit)}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-center">
+                                <button class="text-red-600 hover:text-red-900" onclick="handleDeleteIncome('${record.id}')" title="Delete Income Record (Stock NOT Restored)">
+                                    <i class="fas fa-trash-alt"></i></button></td>`;
+                  tableBody.appendChild(row);
+               });
+            }
+            renderIncomePaginationControls(sortedAndFilteredData.length);
+            updateIncomeSortIndicators();
+            updateActiveFilterButton();
+         }, 50); // Small delay to ensure spinner is visible. Adjust or remove if not needed.
+
+      }
+
+      window.handleDeleteIncome = function (incomeId) {
+         const incomeIndex = appData.income.findIndex(inc => inc.id === incomeId);
+         if (incomeIndex === -1) { showCustomAlert("Could not find income record to delete.", "Delete Error"); return; }
+         const record = appData.income[incomeIndex];
+         showCustomConfirm(
+            `Delete income: ${record.quantitySold}x ${record.itemName} (${formatDate(record.date)})? WARNING: Stock NOT restored.`,
+            () => {
+               appData.income.splice(incomeIndex, 1); saveDataToLocalStorage();
+               const totalFilteredAfterDelete = filterIncomeData(appData.income).length;
+               const totalPages = Math.ceil(totalFilteredAfterDelete / incomeRowsPerPage);
+               if (currentIncomePage > totalPages && totalPages > 0) { currentIncomePage = totalPages; }
+               else if (totalFilteredAfterDelete === 0) { currentIncomePage = 1; }
+
+               updateIncomeSummaryBox(); // Update summary after deleting sale
+               displayIncomeRecords();
+               updateDashboardSummary();
+               showCustomAlert("Income record deleted. Stock not restored.", "Record Deleted");
+            }, null, "Confirm Income Deletion"
+         );
+      }
+
+      // Collapsible Sale Form Logic
+      function applySaleFormCollapseState(collapsed, applyTransition = true) {
+         const formContent = document.getElementById('record-sale-form-content');
+         const toggleBtnIcon = document.querySelector('#toggle-sale-form-btn i');
+         const saleHistoryContainer = document.getElementById('sale-history-container');
+         const recordSaleContainer = document.getElementById('record-sale-container');
+
+         if (!formContent || !toggleBtnIcon || !saleHistoryContainer || !recordSaleContainer) return;
+
+         if (!applyTransition) {
+            formContent.style.transition = 'none';
+         } else {
+            formContent.style.transition = ''; // Re-enable default CSS transitions
+         }
+
+         if (collapsed) {
+            formContent.style.maxHeight = formContent.scrollHeight + "px"; // Set to current height before collapsing
+            requestAnimationFrame(() => { // Allow browser to register current height
+               formContent.classList.add('collapsed');
+               formContent.style.maxHeight = '0px';
+               formContent.classList.remove('mt-4', 'border-t', 'pt-4', 'pb-2');
+            });
+
+            toggleBtnIcon.classList.remove('fa-chevron-up');
+            toggleBtnIcon.classList.add('fa-chevron-down');
+            saleHistoryContainer.classList.remove('lg:col-span-1');
+            saleHistoryContainer.classList.add('lg:col-span-2');
+            recordSaleContainer.classList.remove('lg:col-span-1');
+         } else {
+            formContent.classList.remove('collapsed');
+            formContent.classList.add('mt-4', 'border-t', 'pt-4', 'pb-2');
+
+            void formContent.offsetWidth; // Force reflow
+            formContent.style.maxHeight = formContent.scrollHeight + "px";
+
+            toggleBtnIcon.classList.remove('fa-chevron-down');
+            toggleBtnIcon.classList.add('fa-chevron-up');
+            saleHistoryContainer.classList.remove('lg:col-span-2');
+            saleHistoryContainer.classList.add('lg:col-span-1');
+            recordSaleContainer.classList.add('lg:col-span-1');
+
+            formContent.addEventListener('transitionend', function handler() {
+               if (!isSaleFormCollapsed) {
+                  formContent.style.maxHeight = 'none';
+               }
+               formContent.removeEventListener('transitionend', handler);
+            });
+         }
+
+         if (!applyTransition) {
+            setTimeout(() => {
+               formContent.style.transition = '';
+            }, 50);
+         }
+      }
+
+      function toggleSaleFormCollapse() {
+         isSaleFormCollapsed = !isSaleFormCollapsed;
+         applySaleFormCollapseState(isSaleFormCollapsed, true);
+         saveIncomeUISettings();
+      }
+
+      function loadIncomeUISettings() {
+         const settingsString = localStorage.getItem('shopMonitorIncomeUISettings');
+         if (settingsString) {
+            try {
+               const settings = JSON.parse(settingsString);
+               if (settings.hasOwnProperty('isSaleFormCollapsed')) {
+                  isSaleFormCollapsed = settings.isSaleFormCollapsed;
+               }
+            } catch (e) {
+               console.error("Error parsing income UI settings from localStorage:", e);
+               isSaleFormCollapsed = false;
+            }
+         }
+      }
+
+      function saveIncomeUISettings() {
+         try {
+            const settings = { isSaleFormCollapsed: isSaleFormCollapsed };
+            localStorage.setItem('shopMonitorIncomeUISettings', JSON.stringify(settings));
+         } catch (e) {
+            console.error("Error saving income UI settings to localStorage:", e);
+         }
+      }
+
+
+      function setupIncomeSection() {
+         console.log("Setting up Income Section...");
+         const dateInput = document.getElementById('item-sale-date');
+         if (dateInput) { dateInput.value = getShortDate(); dateInput.addEventListener('input', () => clearValidationError('item-sale-date')); }
+
+         document.getElementById('item-sale-form')?.addEventListener('submit', handleRecordItemSale);
+
+         const quantityInput = document.getElementById('item-sale-quantity');
+         const priceInput = document.getElementById('item-sale-price');
+         const itemNameInput = document.getElementById('item-sale-name');
+
+         quantityInput?.addEventListener('input', () => {
+            updateCalculatedTotalSale();
+            clearValidationError('item-sale-quantity');
+         });
+
+         priceInput?.addEventListener('input', () => {
+            updateCalculatedTotalSale();
+            clearValidationError('item-sale-price');
+            clearTimeout(lossCheckTimeout);
+            lossCheckTimeout = setTimeout(() => {
+               checkPotentialLoss(itemNameInput, priceInput);
+            }, 750);
+         });
+
+         itemNameInput?.addEventListener('blur', () => {
+            const suggestionsContainer = document.getElementById('income-item-suggestions');
+            setTimeout(() => {
+               if (suggestionsContainer && suggestionsContainer.classList.contains('hidden')) {
+                  checkPotentialLoss(itemNameInput, priceInput);
+               }
+            }, 100);
+         });
+
+         // Setup collapse trigger for the entire header
+         document.getElementById('record-sale-header')?.addEventListener('click', toggleSaleFormCollapse);
+
+         // Apply initial collapse state WITHOUT transition on load
+         applySaleFormCollapseState(isSaleFormCollapsed, false);
+
+
+         updateCalculatedTotalSale();
+         updateItemAvailabilityDisplay('');
+         setupIncomeAutocomplete();
+         setupIncomeFilters();
+         document.querySelectorAll('#income-table .sortable-header').forEach(header => {
+            header.addEventListener('click', () => {
+               const key = header.getAttribute('data-sort-key');
+               if (key) handleIncomeSort(key);
+            });
+         });
+         updateIncomeSummaryBox();
+         displayIncomeRecords();
+      }
+
+      // --- INITIALIZATION for this page ---
+      document.addEventListener('DOMContentLoaded', () => {
+         console.log("Initializing Income page...");
+         loadDataFromLocalStorage();
+         loadIncomeUISettings(); // Load UI settings for this page
+         setupConfirmModal(); setupEditModal(); setupAdjustModal();
+         setupIncomeSection(); // This will now also apply the initial collapse state
+         updateLastBackupDisplay();
+         document.getElementById('save-backup-button')?.addEventListener('click', handleSaveAndBackup);
+         const recordBtn = document.getElementById('record-item-sale-btn');
+         if (recordBtn && !recordBtn.querySelector('i.fa-cash-register')) { recordBtn.innerHTML = `<i class="fas fa-cash-register mr-2"></i> ${recordBtn.textContent.trim()}`; }
+         console.log("Income Initialization Complete.");
+      });
+   </script>
+
+</body>
+
+</html>
