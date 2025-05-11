@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Shop Monitor - Reports</title>
+   <link rel="icon" href="favicon.ico" type="image/x-icon">
+   <script src="https://cdn.tailwindcss.com"></script>
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+   <style>
+      /* Custom Styles */
+      body {
+         font-family: 'Inter', sans-serif;
+      }
+
+      .nav-link.active {
+         background-color: #1d4ed8;
+         /* Darker blue for active */
+         color: white;
+      }
+
+      .nav-link {
+         transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+      }
+
+      /* Custom Modal Styles */
+      .modal-overlay {
+         position: fixed;
+         top: 0;
+         left: 0;
+         right: 0;
+         bottom: 0;
+         background-color: rgba(0, 0, 0, 0.5);
+         display: flex;
+         justify-content: center;
+         align-items: center;
+         z-index: 1000;
+         opacity: 0;
+         visibility: hidden;
+         transition: opacity 0.3s ease, visibility 0.3s ease;
+      }
+
+      .modal-overlay.visible {
+         opacity: 1;
+         visibility: visible;
+      }
+
+      .modal-content {
+         background-color: white;
+         padding: 2rem;
+         border-radius: 0.5rem;
+         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+         width: 90%;
+         max-width: 500px;
+         transform: scale(0.95);
+         transition: transform 0.3s ease;
+      }
+
+      .modal-overlay.visible .modal-content {
+         transform: scale(1);
+      }
+
+      #custom-modal {
+         z-index: 1010;
+         /* Ensure confirmation modal is on top */
+      }
+
+      #edit-stock-modal .modal-content {
+         max-width: 650px;
+         /* Wider modal for edit form */
+      }
+
+      #adjust-stock-modal .modal-content {
+         max-width: 550px;
+         /* Slightly wider for adjust form */
+      }
+
+      /* Undo Area Styling */
+      #undo-area {
+         background-color: #e0f2fe;
+         /* Light blue */
+         color: #0c4a6e;
+         /* Dark blue text */
+         padding: 0.75rem 1rem;
+         border-radius: 0.375rem;
+         border: 1px solid #7dd3fc;
+         /* Lighter blue border */
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         opacity: 1;
+         transition: opacity 0.5s ease-out;
+         margin-bottom: 1rem;
+      }
+
+      #undo-area.hidden {
+         opacity: 0;
+         height: 0;
+         padding-top: 0;
+         padding-bottom: 0;
+         margin-bottom: 0;
+         overflow: hidden;
+         transition: opacity 0.5s ease-out, height 0.3s ease-out, padding 0.3s ease-out, margin 0.3s ease-out;
+      }
+
+      #undo-area .undo-button {
+         background-color: #38bdf8;
+         /* Sky blue */
+         color: white;
+         padding: 0.25rem 0.75rem;
+         border-radius: 0.375rem;
+         border: none;
+         cursor: pointer;
+         font-weight: 500;
+         transition: background-color 0.2s ease;
+      }
+
+      #undo-area .undo-button:hover {
+         background-color: #0ea5e9;
+         /* Darker sky blue */
+      }
+
+      /* Text Highlighting classes */
+      .text-highlight-red {
+         color: #dc2626;
+         /* Red-600 */
+         font-weight: 600;
+      }
+
+      .text-highlight-yellow {
+         color: #d97706;
+         /* Amber-600 */
+      }
+
+      /* Disabled Row Style */
+      .row-disabled td {
+         color: #9ca3af !important;
+         /* Gray-400 */
+      }
+
+      .row-disabled .stock-level-bar {
+         background-color: #9ca3af !important;
+         /* Gray-400 */
+         width: 0% !important;
+         /* No bar for disabled */
+      }
+
+      /* Prevent hover effect on disabled rows */
+      tbody tr.row-disabled:hover {
+         background-color: #ffffff;
+         /* White */
+      }
+
+      /* Normal row hover */
+      tbody tr:hover:not(.row-disabled) {
+         background-color: #f9fafb;
+         /* Gray-50 */
+      }
+
+      /* Sorting Header Styles */
+      .sortable-header {
+         cursor: pointer;
+         user-select: none;
+         /* Prevent text selection */
+      }
+
+      .sortable-header:hover {
+         background-color: #f3f4f6;
+         /* Gray-100 */
+      }
+
+      .sort-icon {
+         display: inline-block;
+         width: 1em;
+         /* Ensure space for icon */
+         margin-left: 0.3em;
+         opacity: 0.4;
+         transition: opacity 0.2s ease;
+      }
+
+      .sortable-header.sort-asc .sort-icon,
+      .sortable-header.sort-desc .sort-icon {
+         opacity: 1;
+         /* Make icon visible when active */
+      }
+
+      /* Pagination Styles */
+      .pagination-controls {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         margin-top: 1rem;
+         padding-top: 0.75rem;
+         border-top: 1px solid #e5e7eb;
+         /* Gray-200 */
+      }
+
+      .pagination-button {
+         padding: 0.5rem 1rem;
+         border: 1px solid #d1d5db;
+         /* Gray-300 */
+         background-color: white;
+         color: #374151;
+         /* Gray-700 */
+         border-radius: 0.375rem;
+         cursor: pointer;
+         transition: background-color 0.2s ease;
+      }
+
+      .pagination-button:hover:not(:disabled) {
+         background-color: #f9fafb;
+         /* Gray-50 */
+      }
+
+      .pagination-button:disabled {
+         opacity: 0.5;
+         cursor: not-allowed;
+      }
+
+      .page-info {
+         font-size: 0.875rem;
+         /* text-sm */
+         color: #6b7280;
+         /* Gray-500 */
+      }
+
+      /* Visual Stock Indicator Styles */
+      .stock-indicator-container {
+         display: inline-flex;
+         align-items: center;
+         width: 100%;
+         /* Take full cell width */
+         justify-content: flex-end;
+         /* Align to the right */
+      }
+
+      .stock-level-bar-bg {
+         width: 60px;
+         /* Fixed width for the bar background */
+         height: 8px;
+         background-color: #e5e7eb;
+         /* Gray-200 */
+         border-radius: 4px;
+         overflow: hidden;
+         margin-left: 8px;
+         /* Space between number and bar */
+         display: inline-block;
+         /* Allow margin */
+      }
+
+      .stock-level-bar {
+         height: 100%;
+         border-radius: 4px;
+         transition: width 0.3s ease;
+      }
+
+      .stock-level-low {
+         background-color: #dc2626;
+         /* Red-600 */
+      }
+
+      .stock-level-medium {
+         background-color: #d97706;
+         /* Amber-600 */
+      }
+
+      .stock-level-high {
+         background-color: #16a34a;
+         /* Green-600 */
+      }
+
+      /* Summary Box Styles */
+      .summary-box {
+         display: grid;
+         grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+         gap: 1rem;
+         margin-bottom: 1.5rem;
+         padding: 1rem;
+         background-color: #f9fafb;
+         /* Gray-50 */
+         border: 1px solid #e5e7eb;
+         /* Gray-200 */
+         border-radius: 0.5rem;
+      }
+
+      .summary-item {
+         padding: 0.75rem;
+         border-radius: 0.375rem;
+         text-align: center;
+      }
+
+      .summary-item-red {
+         background-color: #fee2e2;
+         color: #991b1b;
+      }
+
+      /* Red-100 bg, Red-900 text */
+      .summary-item-yellow {
+         background-color: #fef9c3;
+         color: #854d0e;
+      }
+
+      /* Yellow-100 bg, Yellow-900 text */
+      .summary-item-blue {
+         background-color: #dbeafe;
+         color: #1e40af;
+      }
+
+      /* Blue-100 bg, Blue-800 text */
+      .summary-value {
+         font-size: 1.5rem;
+         /* text-2xl */
+         font-weight: 600;
+         display: block;
+      }
+
+      .summary-label {
+         font-size: 0.875rem;
+         /* text-sm */
+         font-weight: 500;
+      }
+
+      /* Autocomplete Suggestion Box */
+      .autocomplete-suggestions {
+         position: absolute;
+         border: 1px solid #d1d5db;
+         /* Gray-300 */
+         background-color: white;
+         max-height: 150px;
+         overflow-y: auto;
+         z-index: 999;
+         width: 100%;
+         /* Make it full width of the input container */
+         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+         border-radius: 0.375rem;
+         margin-top: 2px;
+         /* Small gap below input */
+      }
+
+      .suggestion-item {
+         padding: 0.5rem 0.75rem;
+         cursor: pointer;
+         font-size: 0.875rem;
+         /* text-sm */
+      }
+
+      .suggestion-item:hover {
+         background-color: #eff6ff;
+         /* Blue-50 */
+      }
+
+      .suggestion-item.active {
+         /* For keyboard navigation */
+         background-color: #dbeafe;
+         /* Blue-100 */
+      }
+   </style>
+</head>
+
+<body class="bg-gray-100">
+   <div class="flex h-screen bg-gray-100">
+      <aside class="w-64 bg-blue-800 text-white flex flex-col fixed h-full shadow-lg rounded-r-lg">
+         <div class="p-6 border-b border-blue-700">
+            <h1 class="text-2xl font-semibold text-center">Shop Monitor</h1>
+         </div>
+         <nav class="flex-1 p-4 space-y-2">
+            <a href="index.html" id="nav-dashboard"
+               class="nav-link flex items-center px-4 py-3 rounded-lg hover:bg-blue-700">
+               <i class="fas fa-tachometer-alt w-6 mr-3 text-center"></i> <span>Dashboard</span>
+            </a>
+            <a href="income.html" id="nav-income"
+               class="nav-link flex items-center px-4 py-3 rounded-lg hover:bg-blue-700">
+               <i class="fas fa-arrow-up-right-dots w-6 mr-3 text-center"></i> <span>Income / Sales</span>
+            </a>
+            <a href="expenses.html" id="nav-expenses"
+               class="nav-link flex items-center px-4 py-3 rounded-lg hover:bg-blue-700">
+               <i class="fas fa-receipt w-6 mr-3 text-center"></i> <span>Expenses</span>
+            </a>
+            <a href="stock.html" id="nav-stock"
+               class="nav-link flex items-center px-4 py-3 rounded-lg hover:bg-blue-700">
+               <i class="fas fa-boxes-stacked w-6 mr-3 text-center"></i> <span>Stock Management</span>
+            </a>
+            <a href="reports.html" id="nav-reports"
+               class="nav-link flex items-center px-4 py-3 rounded-lg hover:bg-blue-700 active"> <i
+                  class="fas fa-chart-pie w-6 mr-3 text-center"></i> <span>Reports</span>
+            </a>
+         </nav>
+         <div class="p-4 border-t border-blue-700">
+            <button id="save-backup-button"
+               class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center transition duration-150 ease-in-out">
+               <i class="fas fa-save mr-2"></i> Save & Backup
+            </button>
+         </div>
+      </aside>
+
+      <main class="flex-1 ml-64 p-8 overflow-y-auto">
+         <h2 id="page-title" class="text-3xl font-bold mb-6 text-gray-800">Reports</h2>
+         <div id="content-area" class="bg-white p-6 rounded-lg shadow-md min-h-[calc(100vh-150px)]">
+            <h3 class="text-xl font-semibold mb-4">Reports & Analytics</h3>
+            <p class="text-gray-600">This section will provide insights into your shop's performance.</p>
+
+            <div class="mt-6 space-y-4">
+               <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h4 class="font-medium text-gray-800">Sales Summary (Placeholder)</h4>
+                  <p class="text-sm text-gray-500">Graphs and tables showing sales trends over time, top-selling items,
+                     etc.</p>
+               </div>
+               <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h4 class="font-medium text-gray-800">Profitability Analysis (Placeholder)</h4>
+                  <p class="text-sm text-gray-500">Detailed breakdown of gross and net profit, profit margins per item
+                     or category.</p>
+               </div>
+               <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h4 class="font-medium text-gray-800">Expense Breakdown (Placeholder)</h4>
+                  <p class="text-sm text-gray-500">Charts showing expenses by category over selected periods.</p>
+               </div>
+               <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h4 class="font-medium text-gray-800">Stock Valuation & Aging (Placeholder)</h4>
+                  <p class="text-sm text-gray-500">Report on current stock value, items nearing expiry, slow-moving
+                     stock.</p>
+               </div>
+            </div>
+
+         </div>
+      </main>
+   </div>
+
+   <div id="custom-modal" class="modal-overlay">
+      <div class="modal-content">
+         <h3 id="modal-title" class="text-xl font-semibold mb-4">Confirmation</h3>
+         <p id="modal-message" class="text-gray-700 mb-6">Are you sure?</p>
+         <div id="modal-buttons" class="flex justify-end space-x-3">
+            <button id="modal-cancel-button"
+               class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition duration-150 ease-in-out">Cancel</button>
+            <button id="modal-confirm-button"
+               class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-150 ease-in-out">Confirm</button>
+            <button id="modal-ok-button"
+               class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-150 ease-in-out">OK</button>
+         </div>
+      </div>
+   </div>
+   <div id="edit-stock-modal" class="modal-overlay">
+      <div class="modal-content">
+         <h3 class="text-xl font-semibold mb-4">Edit Stock Batch</h3>
+         <form id="edit-stock-form" class="space-y-4"> ... </form>
+      </div>
+   </div>
+   <div id="adjust-stock-modal" class="modal-overlay">
+      <div class="modal-content">
+         <h3 class="text-xl font-semibold mb-1">Adjust Stock Quantity</h3>
+         <p class="text-sm text-gray-600 mb-4" id="adjust-item-info">Adjusting: Item Name</p>
+         <form id="adjust-stock-form" class="space-y-4"> ... </form>
+      </div>
+   </div>
+
+   <script>
+      // --- COPIED SHARED JS VARIABLES & FUNCTIONS ---
+      // Global State
+      let appData = { income: [], expenses: [], stock: [], metadata: { lastBackup: null } };
+      let modalConfirmCallback = null; // Needed for confirm modal
+
+      // DOM Elements (Common - or query within functions)
+      const confirmModal = document.getElementById('custom-modal');
+      const modalTitle = document.getElementById('modal-title');
+      const modalMessage = document.getElementById('modal-message');
+      const modalButtons = document.getElementById('modal-buttons');
+      const modalConfirmBtn = document.getElementById('modal-confirm-button');
+      const modalCancelBtn = document.getElementById('modal-cancel-button');
+      const modalOkBtn = document.getElementById('modal-ok-button');
+      const editModal = document.getElementById('edit-stock-modal'); // Keep for consistency
+      const adjustModal = document.getElementById('adjust-stock-modal'); // Keep for consistency
+
+      // --- Shared Functions (Copied from original script) ---
+
+      // Modal Setup and Functions
+      function setupConfirmModal() { /* COPY function from dashboard.html */
+         modalCancelBtn?.addEventListener('click', hideConfirmModal);
+         modalOkBtn?.addEventListener('click', hideConfirmModal);
+         modalConfirmBtn?.addEventListener('click', () => {
+            if (typeof modalConfirmCallback === 'function') { try { modalConfirmCallback(); } catch (error) { console.error("Callback Error:", error); showCustomAlert("Action error.", "Error"); } }
+            hideConfirmModal();
+         });
+         confirmModal?.addEventListener('click', (event) => { if (event.target === confirmModal) hideConfirmModal(); });
+      }
+      function showConfirmModal(title, message, type = 'alert') { /* COPY function from dashboard.html */
+         if (!confirmModal || !modalTitle || !modalMessage || !modalConfirmBtn || !modalCancelBtn || !modalOkBtn) return;
+         modalTitle.textContent = title; modalMessage.textContent = message; modalConfirmCallback = null;
+         modalConfirmBtn.style.display = (type === 'confirm') ? 'inline-block' : 'none';
+         modalCancelBtn.style.display = (type === 'confirm') ? 'inline-block' : 'none';
+         modalOkBtn.style.display = (type === 'alert') ? 'inline-block' : 'none';
+         modalConfirmBtn.className = 'px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-150 ease-in-out';
+         confirmModal.classList.add('visible');
+      }
+      function hideConfirmModal() { /* COPY function from dashboard.html */
+         if (confirmModal && confirmModal.classList.contains('visible')) {
+            confirmModal.classList.remove('visible');
+            if (modalConfirmCallback) modalConfirmCallback = null;
+         }
+      }
+      function showCustomAlert(message, title = "Alert") { /* COPY function from dashboard.html */
+         showConfirmModal(title, message, 'alert');
+      }
+      function showCustomConfirm(message, onConfirm, title = "Confirmation", confirmBtnClass = 'bg-red-600 hover:bg-red-700') { /* COPY function from dashboard.html */
+         if (!modalConfirmBtn) return;
+         if (typeof onConfirm === 'function') {
+            showConfirmModal(title, message, 'confirm');
+            modalConfirmCallback = onConfirm;
+            modalConfirmBtn.className = `px-4 py-2 text-white rounded-md transition duration-150 ease-in-out ${confirmBtnClass}`;
+         } else { showCustomAlert("Internal error (confirm setup).", "Error"); }
+      }
+      function setupEditModal() { /* COPY function from dashboard.html */
+         const btn = document.getElementById('edit-stock-cancel-button');
+         btn?.addEventListener('click', hideEditModal);
+         editModal?.addEventListener('click', (event) => { if (event.target === editModal) hideEditModal(); });
+      }
+      function showEditModal(stockItem) { /* COPY function from dashboard.html */
+         if (!editModal) return;
+         document.getElementById('edit-stock-id').value = stockItem?.id || '';
+         document.getElementById('edit-stock-name').value = stockItem?.name || '';
+         document.getElementById('edit-stock-unit').value = stockItem?.unit || 'kg';
+         document.getElementById('edit-stock-quantity').value = stockItem?.quantity || 0;
+         document.getElementById('edit-stock-price').value = stockItem?.purchasePrice || 0;
+         document.getElementById('edit-stock-date-bought').value = stockItem?.dateBought || '';
+         document.getElementById('edit-stock-expiry-date').value = stockItem?.expiryDate || '';
+         editModal.classList.add('visible');
+      }
+      function hideEditModal() { /* COPY function from dashboard.html */
+         if (editModal && editModal.classList.contains('visible')) {
+            editModal.classList.remove('visible');
+            document.getElementById('edit-stock-form')?.reset();
+         }
+      }
+      function setupAdjustModal() { /* COPY function from dashboard.html */
+         const btn = document.getElementById('adjust-stock-cancel-button');
+         btn?.addEventListener('click', hideAdjustModal);
+         adjustModal?.addEventListener('click', (event) => { if (event.target === adjustModal) hideAdjustModal(); });
+      }
+      function showAdjustModal(stockItem) { /* COPY function from dashboard.html */
+         if (!adjustModal) return;
+         const info = document.getElementById('adjust-item-info');
+         document.getElementById('adjust-stock-id').value = stockItem?.id || '';
+         if (info) info.textContent = `Adjusting: ${stockItem?.name || '?'} (...)`;
+         adjustModal.classList.add('visible');
+      }
+      function hideAdjustModal() { /* COPY function from dashboard.html */
+         if (adjustModal && adjustModal.classList.contains('visible')) {
+            adjustModal.classList.remove('visible');
+            document.getElementById('adjust-stock-form')?.reset();
+         }
+      }
+
+      // Data Persistence & Backup
+      function saveDataToLocalStorage() { /* COPY function from dashboard.html */
+         try {
+            localStorage.setItem('shopMonitorData', JSON.stringify(appData));
+            console.log("Data saved.");
+            updateLastBackupTime(new Date());
+         } catch (error) { console.error("Save Error:", error); showCustomAlert("Error saving data.", "Save Error"); }
+      }
+      function loadDataFromLocalStorage() { /* COPY function from dashboard.html */
+         const dataString = localStorage.getItem('shopMonitorData');
+         if (dataString) {
+            try {
+               const loadedData = JSON.parse(dataString);
+               appData.income = Array.isArray(loadedData.income) ? loadedData.income : [];
+               appData.expenses = Array.isArray(loadedData.expenses) ? loadedData.expenses : [];
+               appData.stock = Array.isArray(loadedData.stock) ? loadedData.stock : [];
+               appData.metadata = typeof loadedData.metadata === 'object' && loadedData.metadata !== null ? loadedData.metadata : { lastBackup: null };
+               appData.stock.forEach(item => { if (item.initialQuantity === undefined) item.initialQuantity = item.quantity; });
+               console.log("Data loaded.");
+            } catch (error) { console.error("Load Error:", error); showCustomAlert("Error loading data.", "Load Error"); appData = { income: [], expenses: [], stock: [], metadata: { lastBackup: null } }; }
+         } else { console.log("No saved data."); appData = { income: [], expenses: [], stock: [], metadata: { lastBackup: null } }; }
+         updateLastBackupDisplay();
+      }
+      function handleSaveAndBackup() { /* COPY function from dashboard.html */
+         saveDataToLocalStorage();
+         try {
+            const timestamp = new Date().toISOString().slice(0, 10);
+            const incomeCsv = generateCsv(appData.income, ['id', 'date', 'description', 'itemName', 'quantitySold', 'sellingPricePerUnit', 'totalSale', 'calculatedCogs', 'grossProfit', 'profitPerUnit']);
+            const expensesCsv = generateCsv(appData.expenses, ['id', 'date', 'amount', 'category', 'description']);
+            const stockCsv = generateCsv(appData.stock, ['id', 'name', 'unit', 'quantity', 'initialQuantity', 'purchasePrice', 'dateBought', 'expiryDate']);
+            if (incomeCsv) downloadCsv(incomeCsv, `backup-income-${timestamp}.csv`);
+            if (expensesCsv) downloadCsv(expensesCsv, `backup-expenses-${timestamp}.csv`);
+            if (stockCsv) downloadCsv(stockCsv, `backup-stock-${timestamp}.csv`);
+            showCustomAlert("Data saved & backup files generated!", "Backup Successful");
+         } catch (error) { console.error("Backup Error:", error); showCustomAlert("Backup failed.", "Backup Error"); }
+      }
+      function generateCsv(data, headers) { /* COPY function from dashboard.html */
+         if (!Array.isArray(data) || data.length === 0) return '';
+         const columns = headers || Object.keys(data[0] || {});
+         if (columns.length === 0) return '';
+         let csvContent = columns.map(col => `"${String(col).replace(/"/g, '""')}"`).join(',') + '\n';
+         data.forEach(row => {
+            const values = columns.map(col => {
+               let value = row[col];
+               if (value === null || value === undefined) value = '';
+               else if (typeof value === 'object') value = JSON.stringify(value);
+               value = String(value).replace(/"/g, '""');
+               if (String(value).includes(',')) value = `"${value}"`;
+               return value;
+            });
+            csvContent += values.join(',') + '\n';
+         });
+         return csvContent;
+      }
+      function downloadCsv(csvContent, filename) { /* COPY function from dashboard.html */
+         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+         const link = document.createElement("a");
+         if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url); link.setAttribute("download", filename);
+            link.style.visibility = 'hidden'; document.body.appendChild(link);
+            link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
+         } else { showCustomAlert("CSV download not supported.", "Download Error"); }
+      }
+
+      // Utility Functions
+      function generateId(prefix = 'id') { /* COPY function from dashboard.html */
+         return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+      }
+      function formatCurrency(amount) { /* COPY function from dashboard.html */
+         const formatter = new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+         const numAmount = Number(amount);
+         if (isNaN(numAmount)) return 'Rs 0.00';
+         return formatter.format(numAmount).replace('LKR', 'Rs');
+      }
+      function formatDate(dateString) { /* COPY function from dashboard.html */
+         if (!dateString) return 'N/A';
+         try { return new Date(dateString + 'T00:00:00').toLocaleDateString('en-CA'); }
+         catch (e) { return 'Invalid Date'; }
+      }
+      function getShortDate(date = new Date()) { /* COPY function from dashboard.html */
+         if (!(date instanceof Date)) date = new Date();
+         return date.toISOString().slice(0, 10);
+      }
+      function updateLastBackupTime(date) { /* COPY function from dashboard.html */
+         if (date instanceof Date) { appData.metadata.lastBackup = date.toISOString(); updateLastBackupDisplay(); }
+      }
+      function updateLastBackupDisplay() { /* COPY function from dashboard.html */
+         const infoElement = document.querySelector('#last-backup-info'); // May be on other pages
+         let displayText = "Never";
+         if (appData.metadata?.lastBackup) {
+            try { displayText = new Date(appData.metadata.lastBackup).toLocaleString(); } catch (e) { displayText = "Invalid date"; }
+         }
+         if (infoElement) infoElement.textContent = displayText;
+      }
+
+      // Dashboard Update Logic (Included for completeness, though not directly displayed here)
+      function updateDashboardSummary() { /* COPY function from dashboard.html */
+         const stockValueEl = document.getElementById('dashboard-stock-value');
+         const grossProfitEl = document.getElementById('dashboard-gross-profit');
+         const netProfitEl = document.getElementById('dashboard-net-profit');
+         if (stockValueEl) {
+            const totalStockValue = appData.stock.reduce((sum, item) => (Number(item.quantity) || 0) * (Number(item.purchasePrice) || 0) + sum, 0);
+            stockValueEl.textContent = formatCurrency(totalStockValue);
+         }
+         if (grossProfitEl || netProfitEl) {
+            const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30); const thirtyDaysAgoStr = getShortDate(thirtyDaysAgo);
+            const recentIncome = appData.income.filter(inc => inc.date >= thirtyDaysAgoStr);
+            const recentExpenses = appData.expenses.filter(exp => exp.date >= thirtyDaysAgoStr);
+            const totalRecentGrossProfit = recentIncome.reduce((sum, inc) => sum + (Number(inc.grossProfit) || 0), 0);
+            const totalRecentExpenses = recentExpenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+            const totalRecentNetProfit = totalRecentGrossProfit - totalRecentExpenses;
+            if (grossProfitEl) grossProfitEl.textContent = formatCurrency(totalRecentGrossProfit);
+            if (netProfitEl) netProfitEl.textContent = formatCurrency(totalRecentNetProfit);
+         }
+      }
+
+
+      // --- SECTION-SPECIFIC JS (Reports) ---
+
+      // Main setup function for the Reports page
+      function setupReportsSection() {
+         console.log("Setting up Reports Section...");
+         // Currently, this section is just static placeholders.
+         // Future implementation would involve:
+         // - Adding date range selectors or other filters.
+         // - Processing appData.income, appData.expenses, appData.stock.
+         // - Generating charts (using a library like Chart.js or D3.js) or tables.
+         // - Displaying the generated reports in the #content-area placeholders.
+
+         // Example: Log data that would be used for reports
+         console.log("Data available for reporting:", {
+            incomeCount: appData.income.length,
+            expenseCount: appData.expenses.length,
+            stockBatchCount: appData.stock.length
+         });
+      }
+
+
+      // --- INITIALIZATION for this page ---
+      document.addEventListener('DOMContentLoaded', () => {
+         console.log("Initializing Reports page...");
+         loadDataFromLocalStorage(); // Load all data
+
+         // Setup common UI components
+         setupConfirmModal();
+         setupEditModal();   // Keep setup for consistency
+         setupAdjustModal(); // Keep setup for consistency
+
+         // Call the main setup function for THIS section
+         setupReportsSection();
+
+         // Update common displays
+         updateLastBackupDisplay();
+
+         // Attach listener for the backup button
+         const saveBackupButton = document.getElementById('save-backup-button');
+         saveBackupButton?.addEventListener('click', handleSaveAndBackup);
+
+         console.log("Reports Initialization Complete.");
+      });
+
+   </script>
+
+</body>
+
+</html>
